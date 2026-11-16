@@ -1,0 +1,741 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CoreDesk Tech | Hardware y Ensambles de PC</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+    <header id="main-header">
+        <div class="header-top">
+            <div class="container header-container">
+                <div class="logo">
+                    <a href="#" onclick="navigateTo('inicio'); return false;">
+                        <span class="logo-core">Core</span><span class="logo-desk">Desk</span> <span class="logo-tech">Tech</span>
+                    </a>
+                    <p class="slogan">Tu tienda de hardware y ensambles de PC</p>
+                </div>
+                
+                <div class="search-bar">
+                    <input type="text" id="global-search" placeholder="Buscar en CoreDesk Tech... (ej. RTX, Ryzen)">
+                    <button class="search-btn">🔍</button>
+                </div>
+
+                <div class="header-actions">
+                    <div class="user-area" id="user-area"></div>
+                    <div class="cart-icon" onclick="toggleCartModal()">
+                        <span class="cart-symbol">🛒</span>
+                        <span class="cart-badge" id="cart-badge">0</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <nav class="main-nav">
+            <div class="container nav-container">
+                <button class="nav-toggle" onclick="toggleMobileNav()">☰ Categorías</button>
+                <ul class="nav-menu" id="nav-menu">
+                    <li><a href="#" onclick="navigateTo('inicio'); return false;" data-view="inicio" class="active">Inicio</a></li>
+                    <li><a href="#" onclick="navigateTo('catalogo'); return false;" data-view="catalogo">Catálogo</a></li>
+                    <li><a href="#" onclick="navigateTo('ofertas'); return false;" data-view="ofertas">Ofertas</a></li>
+                    <li id="nav-admin-item" style="display:none;">
+                        <a href="#" onclick="navigateTo('admin-panel'); return false;" data-view="admin-panel">Panel Admin</a>
+                    </li>
+                </ul>
+            </div>
+        </nav>
+    </header>
+
+    <!-- Modal Autenticación -->
+    <div id="auth-modal" class="modal-overlay" onclick="closeModalOutside(event, 'auth-modal')">
+        <div class="modal-form modal-auth">
+            <div class="modal-header">
+                <h2 id="auth-title">Iniciar Sesión</h2>
+                <button class="close-modal" onclick="closeAuthModal()">✕</button>
+            </div>
+            <div class="auth-tabs">
+                <button class="auth-tab active" id="tab-login" onclick="switchAuthTab('login')">Iniciar Sesión</button>
+                <button class="auth-tab" id="tab-register" onclick="switchAuthTab('register')">Registrarse</button>
+            </div>
+
+            <form id="login-form" onsubmit="handleLogin(event)">
+                <div class="form-group">
+                    <label>Correo Electrónico</label>
+                    <input type="email" id="login-email" required placeholder="tu@correo.com">
+                </div>
+                <div class="form-group">
+                    <label>Contraseña</label>
+                    <input type="password" id="login-password" required placeholder="••••••••">
+                </div>
+                <div class="auth-hint">
+                    <small>💡 Admin demo: <strong>admin@coredesk.com</strong> / <strong>admin123</strong></small>
+                </div>
+                <button type="submit" class="btn-primary" style="width:100%;">Entrar</button>
+            </form>
+
+            <form id="register-form" onsubmit="handleRegister(event)" style="display:none;">
+                <div class="form-group">
+                    <label>Nombre Completo</label>
+                    <input type="text" id="reg-name" required placeholder="Juan Pérez">
+                </div>
+                <div class="form-group">
+                    <label>Correo Electrónico</label>
+                    <input type="email" id="reg-email" required>
+                </div>
+                <div class="form-group">
+                    <label>Contraseña</label>
+                    <input type="password" id="reg-password" required minlength="6">
+                </div>
+                <div class="form-group">
+                    <label>Confirmar Contraseña</label>
+                    <input type="password" id="reg-password2" required minlength="6">
+                </div>
+                <button type="submit" class="btn-primary" style="width:100%;">Crear Cuenta</button>
+            </form>
+        </div>
+    </div>
+
+    <!-- Modal Carrito -->
+    <div id="cart-modal" class="modal-overlay" onclick="closeCartModalOutside(event)">
+        <div class="modal-cart">
+            <div class="modal-header">
+                <h2>Tu Carrito de Compras</h2>
+                <button class="close-modal" onclick="toggleCartModal()">✕</button>
+            </div>
+            <div id="cart-items-list" class="cart-items-list"></div>
+            <div class="cart-totals">
+                <div class="total-row"><span>Subtotal:</span> <span id="cart-subtotal">$0.00</span></div>
+                <div class="total-row"><span>Envío:</span> <span id="cart-shipping">$0.00</span></div>
+                <div class="total-row grand-total"><span>Total:</span> <span id="cart-total">$0.00</span></div>
+                <button class="btn-primary checkout-btn" onclick="checkout()">Proceder al Pago</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal Detalle de Orden -->
+    <div id="order-modal" class="modal-overlay" onclick="closeModalOutside(event, 'order-modal')">
+        <div class="modal-form">
+            <div class="modal-header">
+                <h2 id="order-modal-title">Detalle de Orden</h2>
+                <button class="close-modal" onclick="closeOrderModal()">✕</button>
+            </div>
+            <div id="order-detail-content"></div>
+        </div>
+    </div>
+
+    <main id="main-content">
+        <!-- Vista: Inicio -->
+        <section id="inicio" class="view active">
+            <div class="container">
+                <div class="banner-main">
+                    <div class="banner-text">
+                        <h1>Ofertas de Hardware para tu PC Gamer y Workstation</h1>
+                        <p>Componentes de alto rendimiento con garantía oficial.</p>
+                        <button class="btn-primary" onclick="navigateTo('catalogo')">Ver Catálogo</button>
+                    </div>
+                    <div class="banner-image">
+                        <img src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='300' height='200' viewBox='0 0 300 200'%3E%3Crect width='300' height='200' fill='%23F0F4F8'/%3E%3Ctext x='50%25' y='50%25' dominant-baseline='middle' text-anchor='middle' font-family='Arial' font-size='20' fill='%230056B3'%3EPC Build%3C/text%3E%3C/svg%3E" alt="Banner">
+                    </div>
+                </div>
+                <h2 class="section-title">⚡ Productos Destacados</h2>
+                <div id="featured-products" class="products-grid"></div>
+            </div>
+        </section>
+
+        <!-- Vista: Catálogo -->
+        <section id="catalogo" class="view">
+            <div class="container catalog-layout">
+                <aside class="filters-panel">
+                    <h3>Filtros</h3>
+                    <div class="filter-group">
+                        <h4>Ordenar por</h4>
+                        <select id="sort-select" onchange="applyFilters()">
+                            <option value="default">Relevancia</option>
+                            <option value="price-asc">Precio: Menor a Mayor</option>
+                            <option value="price-desc">Precio: Mayor a Menor</option>
+                            <option value="availability">Disponibilidad</option>
+                        </select>
+                    </div>
+                    <div class="filter-group">
+                        <h4>Disponibilidad</h4>
+                        <label class="checkbox-label">
+                            <input type="checkbox" id="filter-instock" onchange="applyFilters()"> Solo con existencia
+                        </label>
+                    </div>
+                    <div class="filter-group">
+                        <h4>Marcas</h4>
+                        <label class="checkbox-label"><input type="checkbox" class="brand-filter" value="AMD" onchange="applyFilters()"> AMD</label>
+                        <label class="checkbox-label"><input type="checkbox" class="brand-filter" value="Intel" onchange="applyFilters()"> Intel</label>
+                        <label class="checkbox-label"><input type="checkbox" class="brand-filter" value="ASUS" onchange="applyFilters()"> ASUS</label>
+                        <label class="checkbox-label"><input type="checkbox" class="brand-filter" value="MSI" onchange="applyFilters()"> MSI</label>
+                        <label class="checkbox-label"><input type="checkbox" class="brand-filter" value="Corsair" onchange="applyFilters()"> Corsair</label>
+                    </div>
+                    <div class="filter-group">
+                        <h4>Rango de Precio (MXN)</h4>
+                        <div class="price-inputs">
+                            <input type="number" id="min-price" placeholder="Mín" min="0">
+                            <span>-</span>
+                            <input type="number" id="max-price" placeholder="Máx" min="0">
+                        </div>
+                        <button class="btn-secondary" onclick="applyFilters()">Filtrar Precio</button>
+                    </div>
+                </aside>
+                <div class="catalog-results">
+                    <div id="catalog-products" class="products-grid"></div>
+                    <div id="no-results" class="no-results" style="display:none;">No se encontraron productos.</div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Vista: Ofertas -->
+        <section id="ofertas" class="view">
+            <div class="container">
+                <div class="ofertas-hero">
+                    <h1>🔥 Ofertas Especiales</h1>
+                    <p>Descuentos exclusivos en componentes seleccionados por nuestro equipo.</p>
+                </div>
+                <div id="offers-products" class="products-grid"></div>
+                <div id="no-offers" class="no-results" style="display:none;">No hay ofertas activas por el momento.</div>
+            </div>
+        </section>
+
+        <!-- Vista: Detalle Producto -->
+        <section id="detalle-producto" class="view">
+            <div class="container">
+                <button class="back-btn" onclick="navigateTo('catalogo')">← Volver al catálogo</button>
+                <div id="product-detail-content"></div>
+            </div>
+        </section>
+
+        <!-- Vista: Mi Perfil -->
+        <section id="mi-perfil" class="view">
+            <div class="container profile-container">
+                <h2 class="section-title">👤 Mi Perfil</h2>
+                <div class="profile-layout">
+                    <aside class="profile-sidebar">
+                        <button class="profile-tab active" onclick="switchProfileTab('datos')">📝 Mis Datos</button>
+                        <button class="profile-tab" onclick="switchProfileTab('pedidos')">📦 Mis Pedidos</button>
+                        <button class="profile-tab" onclick="switchProfileTab('resenas')">⭐ Mis Reseñas</button>
+                        <button class="profile-tab" onclick="switchProfileTab('seguridad')">🔒 Seguridad</button>
+                    </aside>
+                    <div class="profile-content" id="profile-content"></div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Vista: Panel Admin -->
+        <section id="admin-panel" class="view">
+            <div class="container admin-layout">
+                <aside class="admin-sidebar">
+                    <div class="admin-sidebar-header">
+                        <div class="admin-avatar">A</div>
+                        <div>
+                            <strong id="admin-sidebar-name">Admin</strong>
+                            <small>Administrador</small>
+                        </div>
+                    </div>
+                    
+                    <nav class="admin-sidebar-nav">
+                        <button class="admin-nav-item active" onclick="switchAdminTab('dashboard', event)" data-tab="dashboard">
+                            <span class="admin-nav-icon">📊</span>
+                            <span>Dashboard</span>
+                        </button>
+                        <button class="admin-nav-item" onclick="switchAdminTab('inventario', event)" data-tab="inventario">
+                            <span class="admin-nav-icon">📦</span>
+                            <span>Inventario</span>
+                            <span class="admin-nav-count" id="count-products">0</span>
+                        </button>
+                        <button class="admin-nav-item" onclick="switchAdminTab('destacados', event)" data-tab="destacados">
+                            <span class="admin-nav-icon">⭐</span>
+                            <span>Destacados</span>
+                        </button>
+                        <button class="admin-nav-item" onclick="switchAdminTab('ofertas-admin', event)" data-tab="ofertas-admin">
+                            <span class="admin-nav-icon">🏷️</span>
+                            <span>Ofertas</span>
+                        </button>
+                        <button class="admin-nav-item" onclick="switchAdminTab('ventas', event)" data-tab="ventas">
+                            <span class="admin-nav-icon">💰</span>
+                            <span>Ventas</span>
+                            <span class="admin-nav-count" id="count-orders">0</span>
+                        </button>
+                        <button class="admin-nav-item" onclick="switchAdminTab('usuarios', event)" data-tab="usuarios">
+                            <span class="admin-nav-icon">👥</span>
+                            <span>Usuarios</span>
+                            <span class="admin-nav-count" id="count-users">0</span>
+                        </button>
+                        <div class="admin-nav-divider"></div>
+                        <button class="admin-nav-item" onclick="navigateTo('inicio')">
+                            <span class="admin-nav-icon">🏠</span>
+                            <span>Ver Tienda</span>
+                        </button>
+                    </nav>
+                </aside>
+
+                <div class="admin-content">
+                    <div class="admin-topbar">
+                        <div>
+                            <h1 id="admin-page-title">Dashboard</h1>
+                            <p id="admin-page-subtitle">Resumen general de CoreDesk Tech</p>
+                        </div>
+                        <button class="btn-primary" onclick="openAddProductModal()">
+                            <span>+</span> Nuevo Producto
+                        </button>
+                    </div>
+
+                    <!-- Dashboard -->
+                    <div id="admin-dashboard" class="admin-section active">
+                        <div class="stats-grid">
+                            <div class="stat-card stat-primary">
+                                <div class="stat-card-header">
+                                    <span class="stat-icon">💰</span>
+                                    <span class="stat-trend up">+12%</span>
+                                </div>
+                                <p class="stat-value" id="stat-ingresos">$0</p>
+                                <p class="stat-label">Ingresos Totales</p>
+                                <div class="stat-bar"><div class="stat-bar-fill" style="width:78%"></div></div>
+                            </div>
+                            <div class="stat-card stat-success">
+                                <div class="stat-card-header">
+                                    <span class="stat-icon">🛒</span>
+                                    <span class="stat-trend up">+8%</span>
+                                </div>
+                                <p class="stat-value" id="stat-ordenes">0</p>
+                                <p class="stat-label">Órdenes Totales</p>
+                                <div class="stat-bar"><div class="stat-bar-fill" style="width:62%"></div></div>
+                            </div>
+                            <div class="stat-card stat-warning">
+                                <div class="stat-card-header">
+                                    <span class="stat-icon">📦</span>
+                                    <span class="stat-trend">Activos</span>
+                                </div>
+                                <p class="stat-value" id="stat-productos">0</p>
+                                <p class="stat-label">Productos en Catálogo</p>
+                                <div class="stat-bar"><div class="stat-bar-fill" style="width:85%"></div></div>
+                            </div>
+                            <div class="stat-card stat-info">
+                                <div class="stat-card-header">
+                                    <span class="stat-icon">👥</span>
+                                    <span class="stat-trend up">+3</span>
+                                </div>
+                                <p class="stat-value" id="stat-usuarios">0</p>
+                                <p class="stat-label">Usuarios Registrados</p>
+                                <div class="stat-bar"><div class="stat-bar-fill" style="width:45%"></div></div>
+                            </div>
+                        </div>
+
+                        <div class="dashboard-grid">
+                            <div class="dashboard-card">
+                                <div class="dashboard-card-header">
+                                    <h3>📈 Ventas Recientes</h3>
+                                    <button class="link-btn" onclick="switchAdminTab('ventas', event)">Ver todas →</button>
+                                </div>
+                                <div id="recent-sales" class="dashboard-list"></div>
+                            </div>
+
+                            <div class="dashboard-card">
+                                <div class="dashboard-card-header">
+                                    <h3>⚠️ Alerta de Stock</h3>
+                                    <button class="link-btn" onclick="switchAdminTab('inventario', event)">Gestionar →</button>
+                                </div>
+                                <div id="low-stock-list" class="dashboard-list"></div>
+                            </div>
+                        </div>
+
+                        <div class="dashboard-card" style="margin-top:24px;">
+                            <div class="dashboard-card-header">
+                                <h3>🏆 Top 5 Productos Más Vendidos</h3>
+                                <span class="badge-mini">Histórico</span>
+                            </div>
+                            <div id="top-products" class="top-products-list"></div>
+                        </div>
+                    </div>
+
+                    <!-- Inventario -->
+                    <div id="admin-inventario" class="admin-section">
+                        <div class="admin-toolbar">
+                            <div class="search-input-group">
+                                <span>🔍</span>
+                                <input type="text" id="admin-search" placeholder="Buscar producto por nombre, marca o categoría..." oninput="renderAdminTable()">
+                            </div>
+                            <select id="admin-filter-category" class="filter-select" onchange="renderAdminTable()">
+                                <option value="">Todas las categorías</option>
+                                <option value="Procesadores">Procesadores</option>
+                                <option value="Tarjetas de Video">Tarjetas de Video</option>
+                                <option value="Tarjetas Madre">Tarjetas Madre</option>
+                                <option value="Memoria RAM">Memoria RAM</option>
+                                <option value="Almacenamiento">Almacenamiento</option>
+                                <option value="Fuentes de Poder">Fuentes de Poder</option>
+                                <option value="Gabinetes">Gabinetes</option>
+                                <option value="Enfriamiento">Enfriamiento</option>
+                                <option value="Monitores">Monitores</option>
+                                <option value="Periféricos">Periféricos</option>
+                            </select>
+                        </div>
+                        <div class="table-container">
+                            <table class="data-table">
+                                <thead>
+                                    <tr>
+                                        <th>ID</th>
+                                        <th>Producto</th>
+                                        <th>Categoría</th>
+                                        <th>Precio</th>
+                                        <th>Stock</th>
+                                        <th>Vendidos</th>
+                                        <th>Acciones</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="admin-table-body"></tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    <!-- Destacados -->
+                    <div id="admin-destacados" class="admin-section">
+                        <div class="info-banner">
+                            <div class="info-banner-icon">⭐</div>
+                            <div>
+                                <strong>¿Qué son los productos destacados?</strong>
+                                <p>Son los productos que aparecen en la página de inicio de CoreDesk Tech. Puedes seleccionarlos manualmente o dejar que el sistema elija automáticamente los más vendidos.</p>
+                            </div>
+                        </div>
+
+                        <div class="mode-selector">
+                            <label class="mode-option">
+                                <input type="radio" name="featured-mode" value="auto" onchange="setFeaturedMode('auto')">
+                                <div class="mode-card">
+                                    <span class="mode-icon">🤖</span>
+                                    <strong>Automático</strong>
+                                    <small>Los 8 productos más vendidos del historial</small>
+                                </div>
+                            </label>
+                            <label class="mode-option">
+                                <input type="radio" name="featured-mode" value="manual" onchange="setFeaturedMode('manual')">
+                                <div class="mode-card">
+                                    <span class="mode-icon">✋</span>
+                                    <strong>Manual</strong>
+                                    <small>Selecciona qué productos mostrar y en qué orden</small>
+                                </div>
+                            </label>
+                        </div>
+
+                        <div id="featured-manual-section" style="display:none;">
+                            <div class="admin-toolbar">
+                                <div class="search-input-group">
+                                    <span>🔍</span>
+                                    <input type="text" id="featured-search" placeholder="Buscar producto para destacar..." oninput="renderFeaturedCandidates()">
+                                </div>
+                                <button class="btn-secondary" onclick="autoFillFeatured()">🤖 Autocompletar con más vendidos</button>
+                            </div>
+
+                            <div class="featured-layout">
+                                <div class="featured-panel">
+                                    <h3>📌 Actualmente Destacados (<span id="featured-count">0</span>/8)</h3>
+                                    <div id="featured-active-list" class="featured-list"></div>
+                                </div>
+                                <div class="featured-panel">
+                                    <h3>📚 Productos Disponibles</h3>
+                                    <div id="featured-candidates-list" class="featured-list"></div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Ofertas Admin -->
+                    <div id="admin-ofertas-admin" class="admin-section">
+                        <div class="info-banner info-banner-warning">
+                            <div class="info-banner-icon">🏷️</div>
+                            <div>
+                                <strong>Gestión de Ofertas</strong>
+                                <p>Activa el modo oferta en productos específicos y define un porcentaje de descuento. Los productos en oferta aparecerán en la sección "Ofertas" del sitio y mostrarán el precio original tachado.</p>
+                            </div>
+                        </div>
+
+                        <div class="admin-toolbar">
+                            <div class="search-input-group">
+                                <span>🔍</span>
+                                <input type="text" id="offers-search" placeholder="Buscar producto..." oninput="renderOffersAdminTable()">
+                            </div>
+                            <select id="offers-filter" class="filter-select" onchange="renderOffersAdminTable()">
+                                <option value="all">Todos los productos</option>
+                                <option value="offer">Solo en oferta</option>
+                                <option value="no-offer">Sin oferta</option>
+                            </select>
+                        </div>
+
+                        <div class="table-container">
+                            <table class="data-table">
+                                <thead>
+                                    <tr>
+                                        <th>Producto</th>
+                                        <th>Precio Actual</th>
+                                        <th>En Oferta</th>
+                                        <th>% Descuento</th>
+                                        <th>Precio Oferta</th>
+                                        <th>Acciones</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="offers-table-body"></tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    <!-- Ventas -->
+                    <div id="admin-ventas" class="admin-section">
+                        <!-- Filtros de fecha -->
+                        <div class="date-filter-bar">
+                            <div class="date-filter-presets">
+                                <button class="date-preset active" onclick="setDateFilter('todo', event)">Todo</button>
+                                <button class="date-preset" onclick="setDateFilter('hoy', event)">Hoy</button>
+                                <button class="date-preset" onclick="setDateFilter('semana', event)">Esta Semana</button>
+                                <button class="date-preset" onclick="setDateFilter('mes', event)">Este Mes</button>
+                                <button class="date-preset" onclick="setDateFilter('mes-anterior', event)">Mes Anterior</button>
+                            </div>
+                            <div class="date-filter-custom">
+                                <label>Desde:</label>
+                                <input type="date" id="date-from" onchange="setDateFilter('custom', event)">
+                                <label>Hasta:</label>
+                                <input type="date" id="date-to" onchange="setDateFilter('custom', event)">
+                                <button class="btn-secondary" onclick="clearDateFilter(event)">Limpiar</button>
+                            </div>
+                        </div>
+
+                        <!-- Banner del rango activo -->
+                        <div class="date-range-banner" id="date-range-banner">
+                            <span class="date-range-icon">📅</span>
+                            <div>
+                                <strong id="date-range-label">Mostrando todas las ventas</strong>
+                                <small id="date-range-detail">Sin filtro de fecha aplicado</small>
+                            </div>
+                        </div>
+
+                        <!-- Resumen del período -->
+                        <div class="period-summary" id="period-summary">
+                            <div class="period-stat">
+                                <span class="period-stat-icon">💰</span>
+                                <div>
+                                    <p class="period-stat-value" id="period-revenue">$0</p>
+                                    <p class="period-stat-label">Ingresos del período</p>
+                                </div>
+                            </div>
+                            <div class="period-stat">
+                                <span class="period-stat-icon">🧾</span>
+                                <div>
+                                    <p class="period-stat-value" id="period-orders">0</p>
+                                    <p class="period-stat-label">Órdenes</p>
+                                </div>
+                            </div>
+                            <div class="period-stat">
+                                <span class="period-stat-icon">📊</span>
+                                <div>
+                                    <p class="period-stat-value" id="period-avg">$0</p>
+                                    <p class="period-stat-label">Ticket promedio</p>
+                                </div>
+                            </div>
+                            <div class="period-stat">
+                                <span class="period-stat-icon">🏆</span>
+                                <div>
+                                    <p class="period-stat-value" id="period-top" style="font-size:0.9rem;">—</p>
+                                    <p class="period-stat-label">Producto top</p>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Gráfico de barras -->
+                        <div class="chart-card">
+                            <div class="chart-header">
+                                <h3>📈 Ventas por <span id="chart-period-label">día</span></h3>
+                                <span class="badge-mini" id="chart-total-orders">0 órdenes</span>
+                            </div>
+                            <div id="sales-chart" class="sales-chart"></div>
+                        </div>
+
+                        <!-- Filtros de búsqueda y tabla -->
+                        <div class="admin-toolbar">
+                            <div class="search-input-group">
+                                <span>🔍</span>
+                                <input type="text" id="orders-search" placeholder="Buscar por cliente o número de orden..." oninput="renderOrdersTable()">
+                            </div>
+                            <select id="orders-filter-status" class="filter-select" onchange="renderOrdersTable()">
+                                <option value="">Todos los estados</option>
+                                <option value="pendiente">Pendiente</option>
+                                <option value="pagada">Pagada</option>
+                                <option value="enviada">Enviada</option>
+                                <option value="entregada">Entregada</option>
+                                <option value="cancelada">Cancelada</option>
+                            </select>
+                        </div>
+                        <div id="orders-table-container"></div>
+                    </div>
+
+                    <!-- Usuarios -->
+                    <div id="admin-usuarios" class="admin-section">
+                        <div class="admin-toolbar">
+                            <div class="search-input-group">
+                                <span>🔍</span>
+                                <input type="text" id="users-search" placeholder="Buscar usuario por nombre o email..." oninput="renderUsersTable()">
+                            </div>
+                            <select id="users-filter-role" class="filter-select" onchange="renderUsersTable()">
+                                <option value="">Todos los roles</option>
+                                <option value="admin">Administradores</option>
+                                <option value="cliente">Clientes</option>
+                            </select>
+                        </div>
+                        <div class="table-container">
+                            <table class="data-table">
+                                <thead>
+                                    <tr>
+                                        <th>Usuario</th>
+                                        <th>Email</th>
+                                        <th>Rol</th>
+                                        <th>Registro</th>
+                                        <th>Pedidos</th>
+                                        <th>Acciones</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="users-table-body"></tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <!-- Modal Producto -->
+    <div id="product-modal" class="modal-overlay" onclick="closeModalOutside(event, 'product-modal')">
+        <div class="modal-form">
+            <div class="modal-header">
+                <h2 id="product-modal-title">Agregar Producto</h2>
+                <button class="close-modal" onclick="closeProductModal()">✕</button>
+            </div>
+            <form id="product-form" onsubmit="saveProduct(event)">
+                <input type="hidden" id="product-id" value="">
+                
+                <div class="form-row">
+                    <div class="form-group" style="flex:1;">
+                        <label>Nombre del Producto *</label>
+                        <input type="text" id="form-name" required>
+                    </div>
+                    <div class="form-group" style="flex:0 0 150px;">
+                        <label>Marca *</label>
+                        <input type="text" id="form-brand" required>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label>Categoría *</label>
+                    <select id="form-category">
+                        <option value="Procesadores">Procesadores</option>
+                        <option value="Tarjetas de Video">Tarjetas de Video</option>
+                        <option value="Tarjetas Madre">Tarjetas Madre</option>
+                        <option value="Memoria RAM">Memoria RAM</option>
+                        <option value="Almacenamiento">Almacenamiento</option>
+                        <option value="Fuentes de Poder">Fuentes de Poder</option>
+                        <option value="Gabinetes">Gabinetes</option>
+                        <option value="Enfriamiento">Enfriamiento</option>
+                        <option value="Monitores">Monitores</option>
+                        <option value="Periféricos">Periféricos</option>
+                    </select>
+                </div>
+
+                <div class="form-row">
+                    <div class="form-group" style="flex:1;">
+                        <label>Precio (MXN) *</label>
+                        <input type="number" id="form-price" required min="0" step="0.01">
+                    </div>
+                    <div class="form-group" style="flex:1;">
+                        <label>Stock *</label>
+                        <input type="number" id="form-stock" required min="0">
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label>Descripción Breve *</label>
+                    <input type="text" id="form-shortdesc" required maxlength="80" placeholder="Máximo 80 caracteres">
+                </div>
+
+                <div class="form-group">
+                    <label>Imagen del Producto</label>
+                    <div class="image-upload-area">
+                        <div class="image-preview" id="image-preview">
+                            <span style="color:#999;font-size:0.85rem;">Sin imagen</span>
+                        </div>
+                        <div class="image-upload-controls">
+                            <label class="btn-secondary upload-btn">
+                                📁 Subir Imagen
+                                <input type="file" id="form-image-file" accept="image/*" onchange="handleImageUpload(event)" style="display:none;">
+                            </label>
+                            <input type="text" id="form-image-url" placeholder="O pega una URL de imagen" oninput="handleImageUrl(this.value)">
+                            <button type="button" class="btn-secondary" onclick="clearImage()">🗑️ Quitar</button>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label>Especificaciones Técnicas (formato: Clave:Valor, una por línea)</label>
+                    <textarea id="form-specs" rows="4" placeholder="Socket:AM5&#10;Frecuencia:4.2 GHz&#10;TDP:120W"></textarea>
+                </div>
+
+                <div class="form-row">
+                    <label class="checkbox-label" style="flex:1;">
+                        <input type="checkbox" id="form-isnew"> Marcar como Nuevo
+                    </label>
+                </div>
+
+                <div class="form-group" style="background:#f8f9fa;padding:12px;border-radius:8px;">
+                    <label class="checkbox-label" style="font-size:0.9rem;font-weight:700;">
+                        <input type="checkbox" id="form-isoffer" onchange="toggleDiscountField()"> 🏷️ Activar Oferta
+                    </label>
+                    <div id="discount-field" style="display:none;margin-top:12px;">
+                        <label style="font-size:0.8rem;color:#555;">Porcentaje de descuento</label>
+                        <div style="display:flex;align-items:center;gap:10px;margin-top:6px;">
+                            <input type="number" id="form-discount" min="1" max="90" value="15" style="width:100px;padding:8px;border:1px solid #E0E0E0;border-radius:6px;" oninput="updateDiscountPreview()">
+                            <span>%</span>
+                            <span id="discount-preview" style="margin-left:auto;font-weight:700;color:#dc3545;"></span>
+                        </div>
+                    </div>
+                </div>
+
+                <button type="submit" class="btn-primary" style="width:100%;margin-top:10px;">Guardar Producto</button>
+            </form>
+        </div>
+    </div>
+
+    <footer>
+        <div class="container footer-container">
+            <div class="footer-col">
+                <h4>CoreDesk Tech</h4>
+                <p>Tu tienda de hardware y ensambles de PC. Componentes de alta calidad para gamers, creadores y profesionales.</p>
+            </div>
+            <div class="footer-col">
+                <h4>Enlaces</h4>
+                <ul>
+                    <li><a href="#">Nosotros</a></li>
+                    <li><a href="#">Contacto</a></li>
+                    <li><a href="#">Términos y Condiciones</a></li>
+                    <li><a href="#">Política de Privacidad</a></li>
+                </ul>
+            </div>
+            <div class="footer-col">
+                <h4>Categorías</h4>
+                <ul>
+                    <li><a href="#" onclick="navigateTo('catalogo'); return false;">Procesadores</a></li>
+                    <li><a href="#" onclick="navigateTo('catalogo'); return false;">Tarjetas de Video</a></li>
+                    <li><a href="#" onclick="navigateTo('catalogo'); return false;">Monitores</a></li>
+                    <li><a href="#" onclick="navigateTo('catalogo'); return false;">Periféricos</a></li>
+                </ul>
+            </div>
+        </div>
+        <div class="footer-bottom">
+            <p>© 2025 CoreDesk Tech. Todos los derechos reservados.</p>
+        </div>
+    </footer>
+
+    <script src="app.js"></script>
+</body>
+</html>
