@@ -48,6 +48,8 @@ router.get('/dashboard', async (req, res, next) => {
         const [stockBajo] = await pool.query(
             'SELECT id_producto, nombre, stock FROM productos WHERE stock < 10 ORDER BY stock ASC LIMIT 5'
         );
+        // v3: contador total de productos con stock bajo (para la 5a tarjeta).
+        const [[conteoStockBajo]] = await pool.query('SELECT COUNT(*) AS total FROM productos WHERE stock < 10');
         const [topProductos] = await pool.query(
             `SELECT id_producto, nombre, unidades_vendidas, stock
              FROM productos ORDER BY unidades_vendidas DESC LIMIT 5`
@@ -57,6 +59,7 @@ router.get('/dashboard', async (req, res, next) => {
             total_ordenes: conteoOrdenes.total,
             productos_activos: productosActivos.total,
             total_usuarios: totalUsuarios.total,
+            stock_bajo_total: conteoStockBajo.total,
             ventas_recientes: ventasRecientes,
             stock_bajo: stockBajo,
             top_productos: topProductos

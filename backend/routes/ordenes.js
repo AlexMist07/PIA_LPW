@@ -23,6 +23,7 @@ const router = express.Router();
 async function ordenConArticulos(idOrden) {
     const [ordenes] = await pool.query(
         `SELECT o.id_orden, o.id_usuario, o.fecha, o.envio, o.total, o.estado,
+                o.direccion_envio, o.metodo_pago, o.ultimos4_tarjeta,
                 u.nombre AS cliente, u.email AS cliente_email
          FROM ordenes o JOIN usuarios u ON u.id_usuario = o.id_usuario
          WHERE o.id_orden = ?`,
@@ -117,9 +118,25 @@ router.post('/', requireAuth, async (req, res, next) => {
         const envio = calcularEnvio(subtotal);
         const total = subtotal + envio;
 
+        // v3 (checkout en pasos): la dirección y el método de pago se guardan
+        // en la orden. De la tarjeta SOLO llegan los últimos 4 dígitos: el
+        // número completo y el CVV nunca se envían ni se guardan.
+        // Requiere la migración migracion_checkout.sql (ver README_APLICAR).
+        const direccionEnvio = String(req.body.direccion_envio || '').trim().slice(0, 500);
+        const metodoPago = String(req.body.metodo_pago || 'tarjeta').trim().slice(0, 20);
+        const ultimos4 = String(req.body.ultimos4 || '').replace(/\D/g, '').slice(0, 4);
+        if (!direccionEnvio) {
+            await conn.rollback();
+            return res.status(400).json({ error: 'Falta la dirección de envío.' });
+        }
+        if (!/^\d{4}$/.test(ultimos4)) {
+            await conn.rollback();
+            return res.status(400).json({ error: 'Faltan los últimos 4 dígitos de la tarjeta.' });
+        }
+
         const [orden] = await conn.query(
-            'INSERT INTO ordenes (id_usuario, envio, total, estado) VALUES (?, ?, ?, "pagada")',
-            [req.usuario.id_usuario, envio, total]
+            'INSERT INTO ordenes (id_usuario, envio, total, estado, direccion_envio, metodo_pago, ultimos4_tarjeta) VALUES (?, ?, ?, "pagada", ?, ?, ?)',
+            [req.usuario.id_usuario, envio, total, direccionEnvio, metodoPago, ultimos4]
         );
         const idOrden = orden.insertId;
         for (const a of articulos) {
@@ -138,6 +155,55 @@ router.post('/', requireAuth, async (req, res, next) => {
 
         const creada = await ordenConArticulos(idOrden);
         res.status(201).json(creada);
+    } catch (err) {
+        try { await conn.rollback(); } catch (e) { /* ya estaba cerrada */ }
+        if (err && err.code === 'ER_BAD_FIELD_ERROR') {
+            return res.status(400).json({ error: 'Falta la migración de la base de datos: ejecuta migracion_checkout.sql en Workbench y vuelve a intentarlo.' });
+        }
+        next(err);
+    } finally {
+        conn.release();
+    }
+});
+
+// PATCH /api/ordenes/:id/cancelar — Cancelar un pedido (v3).
+// Solo el dueño o un admin, y solo si está "pagada". Devuelve el stock
+// de cada artículo y resta las unidades vendidas, en una transacción.
+router.patch('/:id/cancelar', requireAuth, async (req, res, next) => {
+    const conn = await pool.getConnection();
+    try {
+        await conn.beginTransaction();
+        const [filas] = await conn.query(
+            'SELECT id_orden, id_usuario, estado FROM ordenes WHERE id_orden = ? FOR UPDATE',
+            [Number(req.params.id)]
+        );
+        if (filas.length === 0) {
+            await conn.rollback();
+            return res.status(404).json({ error: 'Orden no encontrada.' });
+        }
+        const orden = filas[0];
+        if (req.usuario.rol !== 'admin' && orden.id_usuario !== req.usuario.id_usuario) {
+            await conn.rollback();
+            return res.status(403).json({ error: 'Esa orden no es tuya.' });
+        }
+        if (orden.estado !== 'pagada') {
+            await conn.rollback();
+            return res.status(400).json({ error: 'Solo se puede cancelar una orden pagada.' });
+        }
+        const [items] = await conn.query(
+            'SELECT id_producto, cantidad FROM orden_detalle WHERE id_orden = ?',
+            [orden.id_orden]
+        );
+        for (const item of items) {
+            await conn.query(
+                'UPDATE productos SET stock = stock + ?, unidades_vendidas = unidades_vendidas - ? WHERE id_producto = ?',
+                [item.cantidad, item.cantidad, item.id_producto]
+            );
+        }
+        await conn.query('UPDATE ordenes SET estado = "cancelada" WHERE id_orden = ?', [orden.id_orden]);
+        await conn.commit();
+        const actualizada = await ordenConArticulos(orden.id_orden);
+        res.json(actualizada);
     } catch (err) {
         try { await conn.rollback(); } catch (e) { /* ya estaba cerrada */ }
         next(err);

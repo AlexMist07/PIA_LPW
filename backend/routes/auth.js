@@ -42,6 +42,10 @@ router.post('/register', async (req, res, next) => {
         if (!nombre || !email || !password) {
             return res.status(400).json({ error: 'Nombre, correo y contraseña son obligatorios.' });
         }
+        // v3: el correo debe tener formato válido (nombre@dominio.com).
+        if (!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(email)) {
+            return res.status(400).json({ error: 'Escribe un correo válido, por ejemplo nombre@correo.com.' });
+        }
         if (password !== password2) {
             return res.status(400).json({ error: 'Las contraseñas no coinciden.' });
         }
@@ -114,6 +118,10 @@ router.post('/cambiar-password', requireAuth, async (req, res, next) => {
             'SELECT password_hash FROM usuarios WHERE id_usuario = ?',
             [req.usuario.id_usuario]
         );
+        // v3: si el usuario ya no existe en la base, error 404 en vez de 500.
+        if (filas.length === 0) {
+            return res.status(404).json({ error: 'Usuario no encontrado. Inicia sesión de nuevo.' });
+        }
         const correcta = await bcrypt.compare(actual, filas[0].password_hash);
         if (!correcta) {
             return res.status(400).json({ error: 'La contraseña actual es incorrecta.' });

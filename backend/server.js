@@ -7,6 +7,8 @@
 // Qué hace este servidor:
 //   1. Sirve la página del prototipo (index.html, app.js, styles.css) que está
 //      en la carpeta del repositorio, un nivel arriba de "backend/".
+//      Solo esos archivos (lista blanca) y las fotos subidas en /uploads:
+//      nunca se sirven backend/*.js, los .sql ni el .env (P1-3).
 //   2. Expone la API REST en /api/*, conectada a MySQL (base coredesk_tech).
 //   3. Si MySQL está apagado o con la contraseña mal, el servidor NO se cae:
 //      /api/health sigue respondiendo {"status":"ok"} y las rutas de la API
@@ -42,17 +44,41 @@ app.use('/api/carrito', require('./routes/carrito'));
 app.use('/api/ordenes', require('./routes/ordenes'));
 app.use('/api/resenas', require('./routes/resenas'));
 app.use('/api/admin', require('./routes/admin'));
+app.use('/api/config', require('./routes/config'));
+
+// ---------- Archivos subidos ----------
+// Las fotos de productos viven en backend/uploads/ y se sirven en /uploads/*.
+app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
 // ---------- Front-end (prototipo) ----------
 // La carpeta del repositorio está un nivel arriba de "backend/".
 // Así, http://localhost:3000/ abre el index.html del prototipo.
+// P1-3: antes se servía TODA la carpeta del repositorio con
+// express.static('..'), así que cualquiera podía descargar backend/*.js o
+// los .sql desde el navegador. Ahora hay una lista blanca explícita con
+// los únicos archivos del front-end; cualquier otro archivo da 404.
 const frontendPath = path.join(__dirname, '..');
-app.use(express.static(frontendPath));
+const ARCHIVOS_FRONTEND = new Set([
+    'index.html',
+    'app.js',
+    'styles.css',
+    'PC-Gamer-4070-Tank-Pro-Black-02.jpg'
+]);
+app.get('/', (req, res) => res.sendFile(path.join(frontendPath, 'index.html')));
+app.use((req, res, next) => {
+    if (req.method !== 'GET') return next();
+    const nombre = decodeURIComponent(req.path).replace(/^\/+/, '');
+    if (!ARCHIVOS_FRONTEND.has(nombre)) return next();
+    return express.static(frontendPath)(req, res, next);
+});
 
 // Si la ruta no es de la API ni un archivo del front-end, error 404 en JSON.
 app.use('/api', (req, res) => {
     res.status(404).json({ error: 'Ruta de la API no encontrada.' });
 });
+
+// Cualquier otra ruta que no sea API ni archivo del front: 404.
+app.use((req, res) => res.status(404).send('Página no encontrada.'));
 
 // ---------- Manejo central de errores ----------
 // Ningún error tumba el servidor. Si es un problema de conexión con MySQL

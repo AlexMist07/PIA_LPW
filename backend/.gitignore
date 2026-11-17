@@ -1,2 +1,5 @@
 node_modules/
 .env
+# Fotos subidas desde la web (no van a Git; solo vive el .gitkeep).
+uploads/*
+!uploads/.gitkeep
