@@ -174,9 +174,46 @@ const IMAGENES_FALLBACK = {
 // Imagen genérica para productos nuevos creados desde el panel admin.
 const IMAGEN_GENERICA = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='200' height='150'%3E%3Crect width='200' height='150' fill='%23e8eef5'/%3E%3Ctext x='50%25' y='50%25' text-anchor='middle' dy='.3em' font-size='44' fill='%231f3864' font-family='sans-serif' font-weight='bold'%3ECD%3C/text%3E%3C/svg%3E";
 
-function imagenDeProducto(id, imagenUrl) {
+function imagenDeProducto(id, imagenUrl, categoria) {
     if (imagenUrl) return imagenUrl;
+    // v4: si el producto no tiene foto, se dibuja una ilustración según su
+    // categoría (en lugar de las iniciales). Si la categoría no se reconoce,
+    // se usa el SVG original del prototipo.
+    const generada = imagenPorCategoria(categoria);
+    if (generada) return generada;
     return IMAGENES_FALLBACK[id] || IMAGEN_GENERICA;
+}
+
+// v4: ilustraciones SVG por categoría (líneas simples sobre un degradado).
+// Se generan en el navegador: no hay que subir ningún archivo.
+const ICONOS_CATEGORIA = {
+    procesadores: '<rect x="70" y="45" width="60" height="60" rx="6"/><rect x="85" y="60" width="30" height="30" rx="3"/><path d="M80 45v-10M93 45v-10M107 45v-10M120 45v-10M80 115v-10M93 115v-10M107 115v-10M120 115v-10M70 55H60M70 68H60M70 82H60M70 95H60M140 55h-10M140 68h-10M140 82h-10M140 95h-10"/>',
+    'tarjetas de video': '<rect x="40" y="50" width="120" height="50" rx="6"/><circle cx="78" cy="75" r="16"/><circle cx="122" cy="75" r="16"/><path d="M78 63v24M66 75h24M122 63v24M110 75h24M50 100v12h40v-12"/>',
+    'tarjetas madre': '<rect x="50" y="30" width="100" height="90" rx="6"/><rect x="62" y="42" width="34" height="34" rx="3"/><path d="M110 42v50M120 42v50M130 42v50M62 92h34M62 104h34M140 104h-30"/>',
+    'memoria ram': '<rect x="35" y="55" width="130" height="36" rx="4"/><path d="M50 65h16v16H50zM74 65h16v16H74zM98 65h16v16H98zM122 65h16v16h-16zM45 91v10M60 91v10M75 91v10M125 91v10M140 91v10M155 91v10"/>',
+    almacenamiento: '<rect x="45" y="58" width="110" height="34" rx="5"/><path d="M58 75h30M120 66h22v18h-22zM155 75h8"/><circle cx="102" cy="75" r="4"/>',
+    'fuentes de poder': '<rect x="50" y="40" width="100" height="70" rx="6"/><circle cx="100" cy="75" r="24"/><path d="M100 51v48M76 75h48M83 58l34 34M117 58l-34 34"/>',
+    gabinetes: '<rect x="65" y="25" width="70" height="100" rx="6"/><circle cx="100" cy="58" r="14"/><circle cx="100" cy="96" r="14"/><path d="M78 115h44"/>',
+    monitores: '<rect x="40" y="35" width="120" height="72" rx="6"/><path d="M90 107v12M75 122h50M55 92l25-25 18 16 22-26 25 35"/>',
+    'periféricos': '<rect x="30" y="70" width="100" height="36" rx="6"/><path d="M42 82h8M56 82h8M70 82h8M84 82h8M98 82h8M112 82h8M50 94h60"/><rect x="142" y="58" width="28" height="48" rx="14"/><path d="M156 58v14"/>',
+    enfriamiento: '<rect x="40" y="55" width="120" height="40" rx="6"/><circle cx="70" cy="75" r="13"/><circle cx="100" cy="75" r="13"/><circle cx="130" cy="75" r="13"/><path d="M60 95c0 18 20 22 40 22"/>'
+};
+const COLORES_CATEGORIA = [['#e8f1ff', '#cfe0ff'], ['#e9f7ef', '#cdeedb'], ['#fff4e5', '#ffe2b8'], ['#f1ecff', '#ddd1ff'], ['#e6f7fa', '#c8eef4']];
+const _cacheImagenes = {};
+function imagenPorCategoria(categoria) {
+    if (!categoria) return null;
+    const clave = String(categoria).toLowerCase().trim();
+    const icono = ICONOS_CATEGORIA[clave];
+    if (!icono) return null;
+    if (_cacheImagenes[clave]) return _cacheImagenes[clave];
+    const indice = Object.keys(ICONOS_CATEGORIA).indexOf(clave) % COLORES_CATEGORIA.length;
+    const [c1, c2] = COLORES_CATEGORIA[indice];
+    const svg = '<svg xmlns="http://www.w3.org/2000/svg" width="200" height="150" viewBox="0 0 200 150">'
+        + '<defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="' + c1 + '"/><stop offset="1" stop-color="' + c2 + '"/></linearGradient></defs>'
+        + '<rect width="200" height="150" fill="url(#g)"/>'
+        + '<g fill="none" stroke="#0B2545" stroke-opacity=".78" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">' + icono + '</g></svg>';
+    _cacheImagenes[clave] = 'data:image/svg+xml,' + encodeURIComponent(svg);
+    return _cacheImagenes[clave];
 }
 
 // ========== ESTADO ==========
@@ -202,6 +239,7 @@ try {
 } catch (e) { currentUser = null; }
 
 let currentView = 'inicio';
+let categoriaActiva = ''; // v4: filtro de categoría del catálogo
 let editingProductId = null;
 let currentImageData = null;
 let imagenEsArchivoSubido = false;
@@ -253,7 +291,7 @@ function normalizarProducto(p) {
         vendido: Number(p.unidades_vendidas ?? p.vendido ?? 0),
         shortDesc: p.descripcion_breve || '',
         descripcion_breve: p.descripcion_breve || '',
-        image: imagenDeProducto(id, p.imagen_url),
+        image: imagenDeProducto(id, p.imagen_url, p.categoria),
         imagen_url: p.imagen_url || null,
         imagenes: Array.isArray(p.imagenes) ? p.imagenes.map((im) => ({ id_imagen: im.id_imagen, url: im.url, posicion: Number(im.posicion || 0) })) : [],
         specs: specs,
@@ -366,7 +404,10 @@ document.addEventListener('DOMContentLoaded', async () => {
     renderUserArea();
     await restaurarSesion();
     renderUserArea();
+    iniciarInterfazV4();
+    mostrarSkeleton('featured-products', 4);
     await cargarProductos();
+    cargarFiltrosDinamicos();
     renderCatalog();
     renderFeaturedProducts();
     renderOffers();
@@ -586,6 +627,8 @@ function navigateTo(viewId, ancla) {
 
     window.scrollTo({ top: 0, behavior: 'smooth' });
     document.getElementById('nav-menu').classList.remove('mobile-open');
+    toggleFiltros(false);
+    observarReveal();
 }
 
 // v3.1 — Catálogo limpio.
@@ -596,7 +639,11 @@ function navigateTo(viewId, ancla) {
 // texto como producto y devolvía 0 filas: "No se encontraron productos."
 // Ahora abrir el catálogo desde el menú/hero/pie SIEMPRE limpia la
 // búsqueda y los filtros, y el estado vacío ofrece limpiarla.
-function abrirCatalogo() {
+function abrirCatalogo(categoria) {
+    // v4: se puede abrir ya filtrado por categoría (tarjetas del inicio, pie de página).
+    categoriaActiva = typeof categoria === 'string' ? categoria : '';
+    const selectCategoria = document.getElementById('filter-category');
+    if (selectCategoria) selectCategoria.value = categoriaActiva;
     const buscador = document.getElementById('global-search');
     if (buscador) buscador.value = '';
     document.querySelectorAll('.brand-filter').forEach((c) => { c.checked = false; });
@@ -661,6 +708,7 @@ async function renderFeaturedProducts() {
         return;
     }
     container.innerHTML = featured.map(p => createProductCardHTML(p)).join('');
+    animarTarjetas(container);
 }
 
 async function renderOffers() {
@@ -669,6 +717,7 @@ async function renderOffers() {
     if (!container) return;
 
     let offers = [];
+    if (!container.children.length) mostrarSkeleton('offers-products', 4);
     try {
         const datos = await apiFetch('/api/productos/ofertas');
         offers = (Array.isArray(datos) ? datos : []).map(normalizarProducto);
@@ -685,6 +734,9 @@ async function renderOffers() {
     }
     if (noOffers) noOffers.style.display = 'none';
     container.innerHTML = offers.map(p => createProductCardHTML(p, true)).join('');
+    animarTarjetas(container);
+    const contador = document.getElementById('ofertas-count');
+    if (contador) contador.textContent = offers.length === 1 ? '1 oferta activa' : offers.length + ' ofertas activas';
 }
 
 // v3: el catálogo usa los parámetros de filtro de la API
@@ -703,12 +755,14 @@ async function renderCatalog() {
     }
     const textoVacio = document.getElementById('no-results-text');
     if (textoVacio) textoVacio.textContent = 'No se encontraron productos.';
+    if (!container.children.length) mostrarSkeleton('catalog-products', 6);
 
     let results = null;
     try {
         const params = new URLSearchParams();
         const termino = document.getElementById('global-search')?.value.trim() || '';
         if (termino) params.set('buscar', termino);
+        if (categoriaActiva) params.set('categoria', categoriaActiva);
         const marcas = Array.from(document.querySelectorAll('.brand-filter:checked')).map(c => c.value);
         if (marcas.length > 0) params.set('marca', marcas.join(','));
         if (document.getElementById('filter-instock')?.checked) params.set('stock', '1');
@@ -725,6 +779,7 @@ async function renderCatalog() {
         results = applyAllFilters();
     }
 
+    actualizarEncabezadoCatalogo(results.length);
     if (results.length === 0) {
         container.innerHTML = '';
         noResults.style.display = 'block';
@@ -732,7 +787,19 @@ async function renderCatalog() {
     }
     noResults.style.display = 'none';
     container.innerHTML = results.map(p => createProductCardHTML(p)).join('');
+    animarTarjetas(container);
     actualizarBotonLimpiarBusqueda();
+}
+
+// v4: título y número de resultados arriba del catálogo.
+function actualizarEncabezadoCatalogo(total) {
+    const titulo = document.getElementById('catalog-title');
+    const conteo = document.getElementById('results-count');
+    const termino = document.getElementById('global-search')?.value.trim() || '';
+    if (titulo) {
+        titulo.textContent = termino ? 'Resultados para "' + termino + '"' : (categoriaActiva || 'Catálogo');
+    }
+    if (conteo) conteo.textContent = total === 1 ? '1 producto' : total + ' productos';
 }
 
 function createProductCardHTML(product, showOfferBadge = false) {
@@ -743,40 +810,65 @@ function createProductCardHTML(product, showOfferBadge = false) {
     // (compra desde $1,000 MXN), no de que haya stock.
     if (getEffectivePrice(product) >= 1000) badges.push('<span class="product-badge envio">Envío Gratis</span>');
 
-    let priceHTML = '';
-    if (product.isOffer && product.discount > 0) {
-        const originalPrice = product.price;
-        const finalPrice = getEffectivePrice(product);
-        priceHTML = `
-            <div class="product-price-wrapper">
-                <span class="price-label">Antes:</span>
-                <span class="product-price-original">$${originalPrice.toLocaleString('es-MX')} MXN</span>
-                <span class="price-label">Ahora:</span>
-                <span class="product-price-new">$${finalPrice.toLocaleString('es-MX')} MXN</span>
-            </div>
-        `;
-    } else {
-        priceHTML = `<p class="product-price">$${product.price.toLocaleString('es-MX')} MXN</p>`;
-    }
+    // v4: precio con descuento en verde y el original tachado al lado.
+    const enOferta = product.isOffer && product.discount > 0;
+    const priceHTML = enOferta
+        ? `<div class="product-price-wrapper">
+                <span class="product-price-new">$${getEffectivePrice(product).toLocaleString('es-MX')}</span>
+                <span class="product-price-original">$${product.price.toLocaleString('es-MX')}</span>
+           </div>`
+        : `<p class="product-price">$${product.price.toLocaleString('es-MX')}</p>`;
 
-    const discountBadge = (product.isOffer && product.discount > 0)
-        ? `<span class="discount-badge">-${product.discount}%</span>` : '';
+    const discountBadge = enOferta ? `<span class="discount-badge">-${product.discount}%</span>` : '';
+
+    // v4: calificación con estrellas (solo si ya tiene reseñas reales).
+    const ratingHTML = product.reviews > 0
+        ? `<div class="product-rating" title="${product.rating} de 5">${estrellasHTML(product.rating)}<span>(${product.reviews})</span></div>`
+        : '';
+
+    // v4: aviso de existencia.
+    let stockHTML = '';
+    if (product.stock === 0) stockHTML = '<span class="product-stock out">Agotado</span>';
+    else if (product.stock < 10) stockHTML = `<span class="product-stock low">Últimas ${product.stock} piezas</span>`;
+    else stockHTML = '<span class="product-stock in">En existencia</span>';
+
+    const iconoCarrito = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"/></svg>';
 
     return `
-        <div class="product-card" onclick="showProductDetail(${product.id})">
-            ${discountBadge}
-            ${badges.slice(0, 2).join('')}
+        <article class="product-card${product.stock === 0 ? ' is-agotado' : ''}" onclick="showProductDetail(${product.id})" tabindex="0" onkeydown="if(event.key==='Enter'&&event.target===this)showProductDetail(${product.id})">
             <div class="product-image">
-                <img src="${product.image}" alt="${product.name}">
+                <div class="product-badges">${badges.slice(0, 2).join('')}</div>
+                ${discountBadge}
+                <img src="${product.image}" alt="${product.name}" loading="lazy" onerror="this.onerror=null;this.src=IMAGEN_GENERICA">
+                <span class="product-quickview">Ver detalles</span>
             </div>
-            <h3 class="product-name">${product.name}</h3>
-            <p class="product-shortdesc">${product.shortDesc}</p>
-            ${priceHTML}
-            <button class="btn-add-cart" onclick="event.stopPropagation(); addToCart(${product.id}, event)" ${product.stock === 0 ? 'disabled' : ''}>
-                ${product.stock > 0 ? 'Añadir al Carrito' : 'Agotado'}
-            </button>
-        </div>
+            <div class="product-body">
+                <span class="product-meta">${product.brand || ''}${product.category ? ' · ' + product.category : ''}</span>
+                <h3 class="product-name">${product.name}</h3>
+                <p class="product-shortdesc">${product.shortDesc}</p>
+                ${ratingHTML}
+                <div class="product-footer">
+                    ${priceHTML}
+                    ${stockHTML}
+                </div>
+                <button class="btn-add-cart" onclick="event.stopPropagation(); addToCart(${product.id}, event)" ${product.stock === 0 ? 'disabled' : ''}>
+                    ${product.stock > 0 ? iconoCarrito + '<span>Añadir al carrito</span>' : 'Agotado'}
+                </button>
+            </div>
+        </article>
     `;
+}
+
+// v4: estrellas llenas, medias y vacías para una calificación de 0 a 5.
+function estrellasHTML(calificacion) {
+    const valor = Math.max(0, Math.min(5, Number(calificacion) || 0));
+    let html = '<span class="stars-mini" aria-hidden="true">';
+    for (let i = 1; i <= 5; i++) {
+        if (valor >= i) html += '<span class="star full">★</span>';
+        else if (valor >= i - 0.5) html += '<span class="star half">★</span>';
+        else html += '<span class="star">★</span>';
+    }
+    return html + '</span>';
 }
 
 // ========== FILTROS ==========
@@ -792,6 +884,7 @@ function applyAllFilters() {
             p.brand.toLowerCase().includes(searchTerm) ||
             p.category.toLowerCase().includes(searchTerm));
     }
+    if (categoriaActiva) filtered = filtered.filter(p => p.category === categoriaActiva);
     if (document.getElementById('filter-instock')?.checked) {
         filtered = filtered.filter(p => p.stock > 0);
     }
@@ -848,8 +941,10 @@ async function showProductDetail(productId) {
     let reviewsHTML = allReviews.length > 0
         ? allReviews.map(r => `
         <div class="review">
-            <div class="stars">${'★'.repeat(r.rating)}${'☆'.repeat(5-r.rating)}</div>
-            <strong>${r.user}</strong>
+            <div class="review-head">
+                <span class="review-avatar">${String(r.user || '?').charAt(0).toUpperCase()}</span>
+                <div><strong>${r.user}</strong>${estrellasHTML(r.rating)}</div>
+            </div>
             <p>${r.comment}</p>
         </div>
     `).join('')
@@ -879,13 +974,15 @@ async function showProductDetail(productId) {
             <p style="margin-top:5px;">Inicia sesión o <a href="#" onclick="openAuthModal(); return false;" style="color:#0056B3;font-weight:600;">crea una cuenta</a>.</p>
         </div>`;
 
+    const ahorro = product.price - getEffectivePrice(product);
     let priceBlock = product.isOffer && product.discount > 0
-        ? `<div style="display:flex;align-items:center;gap:12px;margin-bottom:15px;flex-wrap:wrap;">
-            <span class="product-price-original">Antes: $${product.price.toLocaleString('es-MX')} MXN</span>
-            <span class="product-price-new" style="margin:0;">Ahora: $${getEffectivePrice(product).toLocaleString('es-MX')} MXN</span>
-            <span style="background:#dc3545;color:white;padding:4px 10px;border-radius:6px;font-size:0.75rem;font-weight:800;">-${product.discount}%</span>
+        ? `<div class="detail-price-block">
+            <span class="product-price-new">$${getEffectivePrice(product).toLocaleString('es-MX')} <small>MXN</small></span>
+            <span class="product-price-original">$${product.price.toLocaleString('es-MX')}</span>
+            <span class="detail-discount">-${product.discount}%</span>
+            <p class="detail-ahorro">Ahorras $${ahorro.toLocaleString('es-MX')} MXN</p>
            </div>`
-        : `<p class="detail-price">$${product.price.toLocaleString('es-MX')} MXN</p>`;
+        : `<p class="detail-price">$${product.price.toLocaleString('es-MX')} <small>MXN</small></p>`;
 
     // v3.1: galería — la foto principal y las fotos extra del producto.
     const fotosDetalle = [product.image, ...(product.imagenes || []).map((im) => im.url)];
@@ -894,37 +991,76 @@ async function showProductDetail(productId) {
             <img src="${url}" alt="Foto ${i + 1} de ${product.name}" onerror="this.parentElement.style.display='none'">
         </div>`).join('');
 
+    // v4: detalle con ruta de navegación, bloque de compra y selector de cantidad.
+    const calificacionTexto = product.reviews > 0
+        ? `${estrellasHTML(product.rating)} <span>${Number(product.rating).toFixed(1)} · ${product.reviews} ${product.reviews === 1 ? 'reseña' : 'reseñas'}</span>`
+        : '<span>Sin reseñas todavía</span>';
+
     container.innerHTML = `
+        <nav class="breadcrumb-v4" aria-label="Ruta">
+            <a href="#" onclick="navigateTo('inicio'); return false;">Inicio</a>
+            <span>/</span>
+            <a href="#" onclick="abrirCatalogo('${String(product.category || '').replace(/'/g, "\\'")}'); return false;">${product.category || 'Catálogo'}</a>
+            <span>/</span>
+            <strong>${product.name}</strong>
+        </nav>
         <div class="detail-container">
             <div class="detail-gallery">
-                <div class="main-image"><img id="detail-main-img" src="${product.image}" alt="${product.name}"></div>
+                <div class="main-image"><img id="detail-main-img" src="${product.image}" alt="${product.name}" onerror="this.onerror=null;this.src=IMAGEN_GENERICA"></div>
                 <div class="thumbnails">${miniaturasHTML}</div>
             </div>
             <div class="detail-info">
+                <span class="detail-eyebrow">${product.brand} · ${product.category}</span>
                 <h2>${product.name}</h2>
-                <p class="detail-brand"><strong>Marca:</strong> ${product.brand} | <strong>Categoría:</strong> ${product.category}</p>
-                <p class="detail-stock ${stockClass}">${stockText}</p>
+                <div class="detail-rating">${calificacionTexto}</div>
+                <p class="detail-shortdesc">${product.shortDesc || ''}</p>
                 ${priceBlock}
-                <div class="quantity-selector">
-                    <label>Cantidad:</label>
-                    <input type="number" id="detail-qty" value="1" min="1" max="${product.stock || 1}" ${product.stock === 0 ? 'disabled' : ''}>
-                </div>
-                <button class="btn-primary" onclick="addToCartFromDetail(${product.id})" ${product.stock === 0 ? 'disabled style="background:#ccc;cursor:not-allowed;"' : ''}>
-                    ${product.stock > 0 ? 'Añadir al Carrito' : 'Agotado'}
-                </button>
-                <h3 style="margin-top:25px;">Especificaciones Técnicas</h3>
-                <table class="specs-table">${specsHTML}</table>
-                <div class="rating-section">
-                    <h3>Valoraciones</h3>
-                    <div class="stars">${'★'.repeat(Math.floor(product.rating))}${'☆'.repeat(5-Math.floor(product.rating))}
-                        <span style="font-size:0.9rem;color:#333;">(${product.rating} / 5 - ${product.reviews} reseñas)</span>
+                <p class="detail-stock ${stockClass}"><span class="stock-dot"></span>${stockText}</p>
+                <div class="detail-buy">
+                    <div class="quantity-selector">
+                        <label for="detail-qty">Cantidad</label>
+                        <div class="qty-stepper">
+                            <button type="button" onclick="cambiarCantidadDetalle(-1)" aria-label="Menos" ${product.stock === 0 ? 'disabled' : ''}>−</button>
+                            <input type="number" id="detail-qty" value="1" min="1" max="${product.stock || 1}" ${product.stock === 0 ? 'disabled' : ''}>
+                            <button type="button" onclick="cambiarCantidadDetalle(1)" aria-label="Más" ${product.stock === 0 ? 'disabled' : ''}>+</button>
+                        </div>
                     </div>
-                    ${reviewsHTML}
-                    ${reviewFormHTML}
+                    <button class="btn-primary btn-buy" onclick="addToCartFromDetail(${product.id})" ${product.stock === 0 ? 'disabled' : ''}>
+                        ${product.stock > 0 ? 'Añadir al Carrito' : 'Agotado'}
+                    </button>
                 </div>
+                <ul class="detail-perks">
+                    <li>${getEffectivePrice(product) >= 1000 ? 'Envío gratis en este producto' : 'Envío gratis en compras desde $1,000 MXN'}</li>
+                    <li>Garantía oficial del fabricante</li>
+                    <li>Pago seguro con tarjeta</li>
+                </ul>
             </div>
         </div>
+        <div class="detail-extra">
+            <section class="detail-card">
+                <h3>Especificaciones Técnicas</h3>
+                ${specsHTML ? `<table class="specs-table">${specsHTML}</table>` : '<p class="text-muted-v4">Este producto aún no tiene especificaciones registradas.</p>'}
+            </section>
+            <section class="detail-card rating-section">
+                <h3>Valoraciones</h3>
+                <div class="rating-summary">
+                    <span class="rating-big">${product.reviews > 0 ? Number(product.rating).toFixed(1) : '–'}</span>
+                    <div>${estrellasHTML(product.rating)}<small>${product.reviews} ${product.reviews === 1 ? 'reseña' : 'reseñas'}</small></div>
+                </div>
+                ${reviewsHTML}
+                ${reviewFormHTML}
+            </section>
+        </div>
     `;
+}
+
+// v4: botones − / + del selector de cantidad del detalle.
+function cambiarCantidadDetalle(delta) {
+    const input = document.getElementById('detail-qty');
+    if (!input) return;
+    const max = Number(input.max) || 1;
+    const valor = (parseInt(input.value) || 1) + delta;
+    input.value = Math.max(1, Math.min(max, valor));
 }
 
 async function submitReview(productId) {
@@ -1002,13 +1138,15 @@ async function addToCart(productId, event) {
     updateCartBadge();
     updateCartModal();
 
-    if (event?.target) {
-        const btn = event.target;
-        const original = btn.textContent;
-        btn.textContent = '✓ Añadido';
-        btn.style.background = '#28a745';
-        setTimeout(() => { btn.textContent = original; btn.style.background = ''; }, 1000);
+    const btn = event?.target?.closest ? event.target.closest('button') : null;
+    if (btn) {
+        // v4: el botón cambia a "Añadido" y vuelve a su contenido original.
+        const original = btn.innerHTML;
+        btn.classList.add('added');
+        btn.innerHTML = '<span>✓ Añadido</span>';
+        setTimeout(() => { btn.innerHTML = original; btn.classList.remove('added'); }, 1200);
     }
+    mostrarToast(product.name + ' se agregó al carrito.');
 }
 
 async function addToCartFromDetail(productId) {
@@ -1070,6 +1208,8 @@ function updateCartBadge() {
         const badge = document.getElementById('cart-badge');
         if (badge) badge.textContent = cantidad;
     }
+    // v4: con el carrito vacío no se muestra el "0".
+    document.getElementById('cart-badge')?.classList.toggle('vacio', cantidad === 0);
 }
 async function toggleCartModal() {
     const modal = document.getElementById('cart-modal');
@@ -1086,8 +1226,9 @@ function updateCartModal() {
     const container = document.getElementById('cart-items-list');
     if (!container) return;
 
+    actualizarProgresoEnvio();
     if (cartData.articulos.length === 0) {
-        container.innerHTML = '<p class="empty-cart">Tu carrito está vacío.</p>';
+        container.innerHTML = '<div class="empty-cart"><svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"/></svg><p>Tu carrito está vacío.</p><button class="btn-secondary" onclick="toggleCartModal(); abrirCatalogo();">Explorar productos</button></div>';
         document.getElementById('cart-subtotal').textContent = '$0.00';
         document.getElementById('cart-shipping').textContent = '$0.00';
         document.getElementById('cart-total').textContent = '$0.00';
@@ -1099,11 +1240,12 @@ function updateCartModal() {
         const itemTotal = unitPrice * item.cantidad;
         return `
             <div class="cart-item">
+                <img class="cart-item-img" src="${imagenCarrito(item)}" alt="">
                 <div class="cart-item-info">
                     <h4>${item.nombre}</h4>
                     <p>$${unitPrice.toLocaleString('es-MX')} x ${item.cantidad} = $${itemTotal.toLocaleString('es-MX')}</p>
                 </div>
-                <button class="cart-item-remove" onclick="removeFromCart(${item.id_producto})">✕</button>
+                <button class="cart-item-remove" onclick="removeFromCart(${item.id_producto})" aria-label="Quitar ${item.nombre}">✕</button>
             </div>
         `;
     }).join('');
@@ -1158,6 +1300,7 @@ function renderPasoCheckout1() {
         const unit = Number(item.precio_final);
         return `
             <div class="cart-item">
+                <img class="cart-item-img" src="${imagenCarrito(item)}" alt="">
                 <div class="cart-item-info">
                     <h4>${item.nombre}</h4>
                     <p>$${unit.toLocaleString('es-MX')} x ${item.cantidad} = $${(unit * item.cantidad).toLocaleString('es-MX')}</p>
@@ -2812,4 +2955,192 @@ function closeModalOutside(event, modalId) {
     if (event.target === event.currentTarget) {
         document.getElementById(modalId).classList.remove('open');
     }
+}
+
+// ============================================================================
+// v4 — Interfaz más dinámica y responsiva
+//   - Encabezado que se compacta al bajar y botón para volver arriba.
+//   - Secciones que aparecen al hacer scroll (IntersectionObserver).
+//   - Tarjetas "esqueleto" mientras cargan los productos.
+//   - Marcas y categorías del catálogo leídas de la API (ya no fijas en el HTML).
+//   - Categorías en el inicio que abren el catálogo filtrado.
+//   - Panel de filtros deslizable en celular.
+//   - Barra de progreso para el envío gratis en el carrito.
+// Todo respeta "prefers-reduced-motion" (ver styles.css).
+// ============================================================================
+
+function iniciarInterfazV4() {
+    const header = document.getElementById('main-header');
+    const botonArriba = document.getElementById('back-to-top');
+    let pendiente = false;
+    const alHacerScroll = () => {
+        pendiente = false;
+        const y = window.scrollY || document.documentElement.scrollTop;
+        if (header) header.classList.toggle('scrolled', y > 24);
+        if (botonArriba) botonArriba.classList.toggle('visible', y > 600);
+    };
+    window.addEventListener('scroll', () => {
+        if (!pendiente) { pendiente = true; requestAnimationFrame(alHacerScroll); }
+    }, { passive: true });
+    alHacerScroll();
+
+    // Cerrar con Escape: filtros, carrito y ventanas propias.
+    document.addEventListener('keydown', (e) => {
+        if (e.key !== 'Escape') return;
+        toggleFiltros(false);
+        document.querySelectorAll('.modal-overlay.open').forEach((m) => m.classList.remove('open'));
+    });
+
+    observarReveal();
+}
+
+// Aparición suave de las secciones marcadas con la clase "reveal".
+let _observadorReveal = null;
+function observarReveal() {
+    const elementos = document.querySelectorAll('.reveal:not(.is-visible)');
+    if (!('IntersectionObserver' in window)) {
+        elementos.forEach((el) => el.classList.add('is-visible'));
+        return;
+    }
+    if (!_observadorReveal) {
+        _observadorReveal = new IntersectionObserver((entradas) => {
+            entradas.forEach((entrada) => {
+                if (entrada.isIntersecting) {
+                    entrada.target.classList.add('is-visible');
+                    _observadorReveal.unobserve(entrada.target);
+                }
+            });
+        }, { rootMargin: '0px 0px -40px 0px', threshold: 0.08 });
+    }
+    elementos.forEach((el) => _observadorReveal.observe(el));
+}
+
+// Tarjetas grises animadas mientras llega la respuesta de la API.
+function mostrarSkeleton(idContenedor, cantidad) {
+    const contenedor = document.getElementById(idContenedor);
+    if (!contenedor) return;
+    let html = '';
+    for (let i = 0; i < cantidad; i++) {
+        html += '<div class="product-card skeleton-card" aria-hidden="true">'
+            + '<div class="skeleton sk-img"></div>'
+            + '<div class="product-body"><div class="skeleton sk-line short"></div>'
+            + '<div class="skeleton sk-line"></div><div class="skeleton sk-line"></div>'
+            + '<div class="skeleton sk-btn"></div></div></div>';
+    }
+    contenedor.innerHTML = html;
+}
+
+// Entrada escalonada de las tarjetas recién dibujadas.
+function animarTarjetas(contenedor) {
+    if (!contenedor) return;
+    Array.from(contenedor.children).forEach((tarjeta, i) => {
+        tarjeta.style.setProperty('--i', Math.min(i, 12));
+        tarjeta.classList.add('card-enter');
+    });
+}
+
+// Marcas, categorías y accesos del inicio, a partir de la base de datos.
+async function cargarFiltrosDinamicos() {
+    let marcas = [];
+    let categorias = [];
+    try {
+        const [m, c] = await Promise.all([
+            apiFetch('/api/productos/marcas'),
+            apiFetch('/api/productos/categorias')
+        ]);
+        marcas = (m || []).map((x) => x.nombre);
+        categorias = (c || []).map((x) => x.nombre);
+    } catch (e) {
+        // Sin API, se arman con el catálogo que ya se cargó.
+        marcas = [...new Set(products.map((p) => p.brand).filter(Boolean))].sort();
+        categorias = [...new Set(products.map((p) => p.category).filter(Boolean))].sort();
+    }
+
+    // Marcas (se conservan las que ya estaban marcadas).
+    const contMarcas = document.getElementById('brand-filters');
+    if (contMarcas && marcas.length) {
+        const marcadas = new Set(Array.from(document.querySelectorAll('.brand-filter:checked')).map((c) => c.value));
+        contMarcas.innerHTML = marcas.map((m) => `
+            <label class="checkbox-label"><input type="checkbox" class="brand-filter" value="${m}" onchange="applyFilters()" ${marcadas.has(m) ? 'checked' : ''}> ${m}</label>`).join('');
+    }
+
+    // Categorías del filtro.
+    const select = document.getElementById('filter-category');
+    if (select && categorias.length) {
+        select.innerHTML = '<option value="">Todas las categorías</option>'
+            + categorias.map((c) => `<option value="${c}">${c}</option>`).join('');
+        select.value = categoriaActiva;
+    }
+
+    // Accesos por categoría en el inicio (con cuántos productos hay).
+    const contInicio = document.getElementById('home-categories');
+    if (contInicio) {
+        const conteo = {};
+        products.forEach((p) => { conteo[p.category] = (conteo[p.category] || 0) + 1; });
+        const visibles = categorias.filter((c) => conteo[c] > 0);
+        contInicio.innerHTML = visibles.map((c, i) => {
+            const nombreJs = String(c).replace(/'/g, "\\'");
+            const img = imagenPorCategoria(c) || IMAGEN_GENERICA;
+            return `
+            <button class="category-card" style="--i:${i}" onclick="abrirCatalogo('${nombreJs}')">
+                <img src="${img}" alt="" loading="lazy">
+                <span class="category-name">${c}</span>
+                <span class="category-count">${conteo[c]} ${conteo[c] === 1 ? 'producto' : 'productos'}</span>
+            </button>`;
+        }).join('');
+        const encabezado = contInicio.previousElementSibling;
+        const ocultar = visibles.length === 0;
+        contInicio.style.display = ocultar ? 'none' : '';
+        if (encabezado && encabezado.classList.contains('section-head')) encabezado.style.display = ocultar ? 'none' : '';
+    }
+}
+
+function cambiarCategoria(valor) {
+    categoriaActiva = valor || '';
+    applyFilters();
+}
+
+// Botón "Buscar" y tecla Enter del buscador.
+function buscarAhora() {
+    // Una búsqueda nueva desde el encabezado busca en todas las categorías.
+    categoriaActiva = '';
+    const selectCategoria = document.getElementById('filter-category');
+    if (selectCategoria) selectCategoria.value = '';
+    actualizarBotonLimpiarBusqueda();
+    if (currentView !== 'catalogo') navigateTo('catalogo');
+    else renderCatalog();
+}
+
+// Panel de filtros deslizable (solo se nota en pantallas chicas).
+function toggleFiltros(abrir) {
+    const panel = document.getElementById('filters-panel');
+    const fondo = document.getElementById('filters-backdrop');
+    if (!panel) return;
+    const abierto = typeof abrir === 'boolean' ? abrir : !panel.classList.contains('open');
+    panel.classList.toggle('open', abierto);
+    if (fondo) fondo.classList.toggle('open', abierto);
+    document.body.classList.toggle('no-scroll', abierto);
+}
+
+// Barra "te faltan $X para el envío gratis" del carrito.
+const ENVIO_GRATIS_DESDE = 1000;
+function actualizarProgresoEnvio() {
+    const cont = document.getElementById('envio-progreso');
+    if (!cont) return;
+    const subtotal = Number(cartData.subtotal || 0);
+    if (!cartData.articulos || cartData.articulos.length === 0) { cont.innerHTML = ''; return; }
+    const porcentaje = Math.min(100, Math.round((subtotal / ENVIO_GRATIS_DESDE) * 100));
+    const faltan = Math.max(0, ENVIO_GRATIS_DESDE - subtotal);
+    cont.innerHTML = `
+        <p>${faltan > 0
+            ? `Te faltan <strong>$${faltan.toLocaleString('es-MX')} MXN</strong> para el envío gratis`
+            : '<strong>¡Tu pedido tiene envío gratis!</strong>'}</p>
+        <div class="envio-barra"><span style="width:${porcentaje}%"></span></div>`;
+}
+
+// Miniatura de un artículo del carrito (foto del catálogo o ilustración).
+function imagenCarrito(item) {
+    const producto = products.find((p) => p.id === Number(item.id_producto));
+    if (producto) return producto.image;
+    return imagenDeProducto(item.id_producto, item.imagen_url, item.categoria);
 }
