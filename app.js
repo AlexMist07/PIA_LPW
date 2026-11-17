@@ -1,86 +1,308 @@
-// ========== PERSISTENCIA ==========
-function saveToStorage(key, data) {
-    try { localStorage.setItem(key, JSON.stringify(data)); }
-    catch (e) { console.warn('Error guardando:', e); }
+// ============================================================================
+// CoreDesk Tech — app.js CONECTADO a la API (Fase 3)
+// Programación Web, Grupo 416 — Ing. Luis Daniel Lepe Rodríguez
+//   Manuel Alexander Fuentes Contreras (2134970)
+//   Jaime Sebastián Esparza Leyva (2097304)
+//
+// Esta versión es la misma página del prototipo (mismos ids, mismas vistas,
+// mismos textos), pero los datos ya NO viven en localStorage: vienen de la
+// API REST del back-end (Node.js + Express + MySQL, carpeta "backend/").
+//
+// Qué cambió respecto al prototipo (app.localstorage.js, respaldo del original):
+//   - Se borraron defaultProducts, generateDefaultOrders, defaultUsers,
+//     saveToStorage / loadFromStorage y todos los datos de ejemplo.
+//   - En localStorage solo quedan DOS cosas: el token JWT ('coredesk_token')
+//     y los datos públicos del usuario ('coredesk_currentUser'). NUNCA se
+//     guardan contraseñas ni el catálogo en localStorage.
+//   - Catálogo, ofertas, destacados, carrito, órdenes, reseñas y panel admin
+//     se leen y se escriben con fetch() a /api/*, con el token en el header
+//     "Authorization: Bearer <token>".
+//   - Las imágenes de los productos en la base de datos son NULL (el
+//     prototipo usaba SVG incrustados), así que cuando imagen_url es null se
+//     muestra la imagen SVG original de ese producto (IMAGENES_FALLBACK).
+//   - Si la API no responde, la página muestra el mensaje en español
+//     "No se pudo conectar con el servidor..." en lugar de romperse.
+// ============================================================================
+
+// ========== API ==========
+const API_BASE = ''; // mismo origen: el back-end sirve esta página en http://localhost:3000/
+
+function getToken() {
+    try { return localStorage.getItem('coredesk_token'); } catch (e) { return null; }
 }
-function loadFromStorage(key, defaultValue) {
+function setToken(token) {
     try {
-        const data = localStorage.getItem(key);
-        return data ? JSON.parse(data) : defaultValue;
-    } catch (e) { return defaultValue; }
+        if (token) localStorage.setItem('coredesk_token', token);
+        else localStorage.removeItem('coredesk_token');
+    } catch (e) { /* localStorage no disponible */ }
 }
 
-// ========== USUARIOS ==========
-const defaultUsers = [
-    { id: 1, name: "Administrador CoreDesk", email: "admin@coredesk.com", password: "admin123", role: "admin", registeredAt: "2025-01-15" }
-];
-let registeredUsers = loadFromStorage('coredesk_users', defaultUsers);
-let currentUser = loadFromStorage('coredesk_currentUser', null);
+// Llamada a la API. Añade el token si existe, lee el error que manda el
+// servidor y lo convierte en un Error con ese mensaje en español.
+// Un 401 (sesión vencida o inválida) cierra la sesión local.
+async function apiFetch(path, options = {}) {
+    const headers = { 'Content-Type': 'application/json', ...(options.headers || {}) };
+    const token = getToken();
+    if (token) headers['Authorization'] = 'Bearer ' + token;
 
-// ========== PRODUCTOS ==========
-const defaultProducts = [
-    { id: 1, name: "AMD Ryzen 7 7800X3D", brand: "AMD", category: "Procesadores", price: 8999, stock: 25, shortDesc: "8 núcleos / 16 hilos, 3D V-Cache", image: "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='200' height='150'%3E%3Crect width='200' height='150' fill='%23e8eef5'/%3E%3Ctext x='50%25' y='50%25' text-anchor='middle' dy='.3em' font-size='60'%3E🔲%3C/text%3E%3C/svg%3E", specs: { Socket: "AM5", Frecuencia: "4.2 - 5.0 GHz", Cache: "96MB L3", TDP: "120W" }, rating: 4.8, reviews: 124, isNew: false, isOffer: false, discount: 0, sold: 18 },
-    { id: 2, name: "NVIDIA RTX 4070 SUPER", brand: "ASUS", category: "Tarjetas de Video", price: 14999, stock: 12, shortDesc: "12GB GDDR6X, DLSS 3.5", image: "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='200' height='150'%3E%3Crect width='200' height='150' fill='%23e8eef5'/%3E%3Ctext x='50%25' y='50%25' text-anchor='middle' dy='.3em' font-size='60'%3E🎮%3C/text%3E%3C/svg%3E", specs: { VRAM: "12GB GDDR6X", Bus: "192-bit", TDP: "220W" }, rating: 4.9, reviews: 89, isNew: true, isOffer: false, discount: 0, sold: 25 },
-    { id: 3, name: "MSI MAG B650 TOMAHAWK WIFI", brand: "MSI", category: "Tarjetas Madre", price: 4999, stock: 18, shortDesc: "Socket AM5, ATX, Wi-Fi 6E", image: "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='200' height='150'%3E%3Crect width='200' height='150' fill='%23e8eef5'/%3E%3Ctext x='50%25' y='50%25' text-anchor='middle' dy='.3em' font-size='60'%3E🔧%3C/text%3E%3C/svg%3E", specs: { Socket: "AM5", Formato: "ATX", RAM: "DDR5 6600+" }, rating: 4.7, reviews: 56, isNew: false, isOffer: false, discount: 0, sold: 12 },
-    { id: 4, name: "Corsair Vengeance DDR5 32GB", brand: "Corsair", category: "Memoria RAM", price: 2899, stock: 40, shortDesc: "2x16GB, 6000MHz, CL36 RGB", image: "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='200' height='150'%3E%3Crect width='200' height='150' fill='%23e8eef5'/%3E%3Ctext x='50%25' y='50%25' text-anchor='middle' dy='.3em' font-size='60'%3E🧠%3C/text%3E%3C/svg%3E", specs: { Capacidad: "32GB", Frecuencia: "6000MHz" }, rating: 4.6, reviews: 210, isNew: false, isOffer: true, discount: 15, sold: 30 },
-    { id: 5, name: "Samsung 990 PRO 2TB NVMe", brand: "Samsung", category: "Almacenamiento", price: 3499, stock: 33, shortDesc: "7,450 MB/s lectura", image: "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='200' height='150'%3E%3Crect width='200' height='150' fill='%23e8eef5'/%3E%3Ctext x='50%25' y='50%25' text-anchor='middle' dy='.3em' font-size='60'%3E💾%3C/text%3E%3C/svg%3E", specs: { Capacidad: "2TB", Lectura: "7,450 MB/s" }, rating: 4.9, reviews: 178, isNew: false, isOffer: false, discount: 0, sold: 22 },
-    { id: 6, name: "Corsair RM850x 850W", brand: "Corsair", category: "Fuentes de Poder", price: 2799, stock: 22, shortDesc: "Fully Modular, 80+ Gold", image: "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='200' height='150'%3E%3Crect width='200' height='150' fill='%23e8eef5'/%3E%3Ctext x='50%25' y='50%25' text-anchor='middle' dy='.3em' font-size='60'%3E⚡%3C/text%3E%3C/svg%3E", specs: { Potencia: "850W", Certificación: "80+ Gold" }, rating: 4.5, reviews: 67, isNew: false, isOffer: true, discount: 20, sold: 15 },
-    { id: 7, name: "NZXT H7 Flow RGB", brand: "NZXT", category: "Gabinetes", price: 2499, stock: 15, shortDesc: "Mid Tower, vidrio templado", image: "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='200' height='150'%3E%3Crect width='200' height='150' fill='%23e8eef5'/%3E%3Ctext x='50%25' y='50%25' text-anchor='middle' dy='.3em' font-size='60'%3E🖥️%3C/text%3E%3C/svg%3E", specs: { Formato: "Mid Tower", Paneles: "Vidrio templado" }, rating: 4.7, reviews: 94, isNew: true, isOffer: false, discount: 0, sold: 8 },
-    { id: 8, name: "ASUS ROG Swift PG279QM 27\"", brand: "ASUS", category: "Monitores", price: 18999, stock: 8, shortDesc: "1440p, 240Hz, G-Sync", image: "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='200' height='150'%3E%3Crect width='200' height='150' fill='%23e8eef5'/%3E%3Ctext x='50%25' y='50%25' text-anchor='middle' dy='.3em' font-size='60'%3E📺%3C/text%3E%3C/svg%3E", specs: { Tamaño: "27\"", Frecuencia: "240Hz" }, rating: 4.8, reviews: 45, isNew: false, isOffer: false, discount: 0, sold: 5 },
-    { id: 9, name: "Corsair K95 RGB Platinum XT", brand: "Corsair", category: "Periféricos", price: 3499, stock: 20, shortDesc: "Switches Cherry MX Blue", image: "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='200' height='150'%3E%3Crect width='200' height='150' fill='%23e8eef5'/%3E%3Ctext x='50%25' y='50%25' text-anchor='middle' dy='.3em' font-size='60'%3E⌨️%3C/text%3E%3C/svg%3E", specs: { Switches: "Cherry MX Blue", Layout: "Español" }, rating: 4.6, reviews: 112, isNew: false, isOffer: true, discount: 25, sold: 20 },
-    { id: 10, name: "Logitech G Pro X Superlight 2", brand: "Logitech", category: "Periféricos", price: 2799, stock: 30, shortDesc: "63g, 32K DPI, inalámbrico", image: "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='200' height='150'%3E%3Crect width='200' height='150' fill='%23e8eef5'/%3E%3Ctext x='50%25' y='50%25' text-anchor='middle' dy='.3em' font-size='60'%3E🖱️%3C/text%3E%3C/svg%3E", specs: { DPI: "32,000", Peso: "63g" }, rating: 4.9, reviews: 201, isNew: true, isOffer: false, discount: 0, sold: 28 },
-    { id: 11, name: "Cooler Master ML360L V2", brand: "Cooler Master", category: "Enfriamiento", price: 1999, stock: 14, shortDesc: "Radiador 360mm, ARGB", image: "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='200' height='150'%3E%3Crect width='200' height='150' fill='%23e8eef5'/%3E%3Ctext x='50%25' y='50%25' text-anchor='middle' dy='.3em' font-size='60'%3E❄️%3C/text%3E%3C/svg%3E", specs: { Tipo: "Líquido AIO", Radiador: "360mm" }, rating: 4.4, reviews: 38, isNew: false, isOffer: false, discount: 0, sold: 6 },
-    { id: 12, name: "Intel Core i7-14700K", brand: "Intel", category: "Procesadores", price: 9499, stock: 0, shortDesc: "20 núcleos, 28 hilos", image: "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='200' height='150'%3E%3Crect width='200' height='150' fill='%23e8eef5'/%3E%3Ctext x='50%25' y='50%25' text-anchor='middle' dy='.3em' font-size='60'%3E🔲%3C/text%3E%3C/svg%3E", specs: { Socket: "LGA1700", Núcleos: "20" }, rating: 4.7, reviews: 78, isNew: false, isOffer: false, discount: 0, sold: 4 }
-];
+    let respuesta;
+    try {
+        respuesta = await fetch(API_BASE + path, { ...options, headers });
+    } catch (e) {
+        throw new Error('No se pudo conectar con el servidor. Revisa que el back-end esté prendido (npm start) e inténtalo de nuevo.');
+    }
+    let datos = null;
+    try { datos = await respuesta.json(); } catch (e) { datos = null; }
 
-let products = loadFromStorage('coredesk_products', defaultProducts);
-
-// ========== ÓRDENES ==========
-// Generamos órdenes de ejemplo con fechas relativas para que los filtros funcionen
-function generateDefaultOrders() {
-    const today = new Date();
-    const daysAgo = (n) => {
-        const d = new Date(today);
-        d.setDate(d.getDate() - n);
-        return d.toISOString().split('T')[0];
-    };
-    
-    return [
-        { id: 1001, userId: 2, userName: "Cliente Demo 1", userEmail: "cliente1@demo.com", items: [{ productId: 2, name: "NVIDIA RTX 4070 SUPER", price: 14999, qty: 1 }], total: 14999, status: "entregada", date: daysAgo(20), shipping: 0 },
-        { id: 1002, userId: 3, userName: "Cliente Demo 2", userEmail: "cliente2@demo.com", items: [{ productId: 1, name: "AMD Ryzen 7 7800X3D", price: 8999, qty: 1 }, { productId: 4, name: "Corsair Vengeance DDR5 32GB", price: 2464, qty: 2 }], total: 13927, status: "enviada", date: daysAgo(10), shipping: 0 },
-        { id: 1003, userId: 4, userName: "Cliente Demo 3", userEmail: "cliente3@demo.com", items: [{ productId: 5, name: "Samsung 990 PRO 2TB", price: 3499, qty: 1 }], total: 3649, status: "pagada", date: daysAgo(5), shipping: 150 },
-        { id: 1004, userId: 5, userName: "Cliente Demo 4", userEmail: "cliente4@demo.com", items: [{ productId: 10, name: "Logitech G Pro X Superlight 2", price: 2799, qty: 1 }], total: 2799, status: "entregada", date: daysAgo(3), shipping: 150 },
-        { id: 1005, userId: 6, userName: "Cliente Demo 5", userEmail: "cliente5@demo.com", items: [{ productId: 2, name: "NVIDIA RTX 4070 SUPER", price: 14999, qty: 1 }, { productId: 6, name: "Corsair RM850x 850W", price: 2239, qty: 1 }], total: 17238, status: "pagada", date: daysAgo(2), shipping: 0 },
-        { id: 1006, userId: 7, userName: "Cliente Demo 6", userEmail: "cliente6@demo.com", items: [{ productId: 9, name: "Corsair K95 RGB Platinum XT", price: 2624, qty: 2 }], total: 5248, status: "entregada", date: daysAgo(1), shipping: 0 },
-        { id: 1007, userId: 8, userName: "Cliente Demo 7", userEmail: "cliente7@demo.com", items: [{ productId: 1, name: "AMD Ryzen 7 7800X3D", price: 8999, qty: 1 }], total: 8999, status: "pagada", date: daysAgo(0), shipping: 0 }
-    ];
+    if (!respuesta.ok) {
+        if (respuesta.status === 401) {
+            cerrarSesionLocal();
+            throw new Error('Tu sesión venció. Inicia sesión de nuevo.');
+        }
+        throw new Error((datos && datos.error) || ('Error del servidor (' + respuesta.status + ').'));
+    }
+    return datos;
 }
-let orders = loadFromStorage('coredesk_orders', generateDefaultOrders());
 
-// ========== RESEÑAS ==========
-let reviews = loadFromStorage('coredesk_reviews', []);
+function mostrarError(e) {
+    alert(e && e.message ? e.message : 'Ocurrió un error. Inténtalo de nuevo.');
+}
 
-// ========== CONFIGURACIÓN DESTACADOS ==========
-let featuredConfig = loadFromStorage('coredesk_featured', { mode: 'auto', ids: [] });
+// Cierra la sesión solo en este navegador (borra token y usuario).
+function cerrarSesionLocal() {
+    currentUser = null;
+    setToken(null);
+    try { localStorage.removeItem('coredesk_currentUser'); } catch (e) { /* nada */ }
+    cartData = { articulos: [], subtotal: 0, envio: 0, total: 0 };
+    renderUserArea();
+    updateCartBadge();
+}
 
-// ========== FILTRO DE FECHAS ==========
-let dateFilter = loadFromStorage('coredesk_dateFilter', { type: 'todo', from: null, to: null });
+// Limpieza por única vez: las llaves del prototipo ya no se usan. Si el
+// navegador las tenía guardadas de la versión anterior, se borran para que
+// ningún dato viejo en localStorage se mezcle con los de la base de datos.
+['coredesk_products', 'coredesk_users', 'coredesk_orders', 'coredesk_reviews',
+ 'coredesk_featured', 'coredesk_dateFilter', 'coredesk_cart'].forEach((k) => {
+    try { localStorage.removeItem(k); } catch (e) { /* nada */ }
+});
+
+// ========== IMÁGENES DE RESPALDO ==========
+// La columna imagen_url de la base de datos es NULL en los 12 productos del
+// seed (el prototipo usaba estos SVG incrustados). Cuando la API devuelve
+// imagen_url en null, se muestra el SVG original de ese producto.
+const IMAGENES_FALLBACK = {
+    1: "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='200' height='150'%3E%3Crect width='200' height='150' fill='%23e8eef5'/%3E%3Ctext x='50%25' y='50%25' text-anchor='middle' dy='.3em' font-size='60'%3E🔲%3C/text%3E%3C/svg%3E",
+    2: "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='200' height='150'%3E%3Crect width='200' height='150' fill='%23e8eef5'/%3E%3Ctext x='50%25' y='50%25' text-anchor='middle' dy='.3em' font-size='60'%3E🎮%3C/text%3E%3C/svg%3E",
+    3: "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='200' height='150'%3E%3Crect width='200' height='150' fill='%23e8eef5'/%3E%3Ctext x='50%25' y='50%25' text-anchor='middle' dy='.3em' font-size='60'%3E🔧%3C/text%3E%3C/svg%3E",
+    4: "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='200' height='150'%3E%3Crect width='200' height='150' fill='%23e8eef5'/%3E%3Ctext x='50%25' y='50%25' text-anchor='middle' dy='.3em' font-size='60'%3E🧠%3C/text%3E%3C/svg%3E",
+    5: "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='200' height='150'%3E%3Crect width='200' height='150' fill='%23e8eef5'/%3E%3Ctext x='50%25' y='50%25' text-anchor='middle' dy='.3em' font-size='60'%3E💾%3C/text%3E%3C/svg%3E",
+    6: "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='200' height='150'%3E%3Crect width='200' height='150' fill='%23e8eef5'/%3E%3Ctext x='50%25' y='50%25' text-anchor='middle' dy='.3em' font-size='60'%3E⚡%3C/text%3E%3C/svg%3E",
+    7: "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='200' height='150'%3E%3Crect width='200' height='150' fill='%23e8eef5'/%3E%3Ctext x='50%25' y='50%25' text-anchor='middle' dy='.3em' font-size='60'%3E🖥️%3C/text%3E%3C/svg%3E",
+    8: "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='200' height='150'%3E%3Crect width='200' height='150' fill='%23e8eef5'/%3E%3Ctext x='50%25' y='50%25' text-anchor='middle' dy='.3em' font-size='60'%3E📺%3C/text%3E%3C/svg%3E",
+    9: "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='200' height='150'%3E%3Crect width='200' height='150' fill='%23e8eef5'/%3E%3Ctext x='50%25' y='50%25' text-anchor='middle' dy='.3em' font-size='60'%3E⌨️%3C/text%3E%3C/svg%3E",
+    10: "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='200' height='150'%3E%3Crect width='200' height='150' fill='%23e8eef5'/%3E%3Ctext x='50%25' y='50%25' text-anchor='middle' dy='.3em' font-size='60'%3E🖱️%3C/text%3E%3C/svg%3E",
+    11: "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='200' height='150'%3E%3Crect width='200' height='150' fill='%23e8eef5'/%3E%3Ctext x='50%25' y='50%25' text-anchor='middle' dy='.3em' font-size='60'%3E❄️%3C/text%3E%3C/svg%3E",
+    12: "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='200' height='150'%3E%3Crect width='200' height='150' fill='%23e8eef5'/%3E%3Ctext x='50%25' y='50%25' text-anchor='middle' dy='.3em' font-size='60'%3E🔲%3C/text%3E%3C/svg%3E",
+};
+
+// Imagen genérica para productos nuevos creados desde el panel admin.
+const IMAGEN_GENERICA = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='200' height='150'%3E%3Crect width='200' height='150' fill='%23e8eef5'/%3E%3Ctext x='50%25' y='50%25' text-anchor='middle' dy='.3em' font-size='60'%3E📦%3C/text%3E%3C/svg%3E";
+
+function imagenDeProducto(id, imagenUrl) {
+    if (imagenUrl) return imagenUrl;
+    return IMAGENES_FALLBACK[id] || IMAGEN_GENERICA;
+}
 
 // ========== ESTADO ==========
-let cart = loadFromStorage('coredesk_cart', []);
+// products: catálogo completo traído de GET /api/productos (en memoria, no
+// en localStorage). orders: órdenes del admin (GET /api/ordenes).
+// registeredUsers: usuarios del admin (GET /api/admin/usuarios).
+// cartData: carrito del usuario (GET /api/carrito): { articulos, subtotal, envio, total }.
+// featuredConfig: { mode: 'auto'|'manual', ids: [...] } (GET /api/admin/destacados).
+// dateFilter: filtro de fechas de Ventas, solo en memoria (ya no se guarda).
+let products = [];
+let orders = [];
+let registeredUsers = [];
+let cartData = { articulos: [], subtotal: 0, envio: 0, total: 0 };
+let featuredConfig = { mode: 'auto', ids: [] };
+let dateFilter = { type: 'todo', from: null, to: null };
+let productosCargados = false;
+let adminStats = null;
+
+let currentUser = null;
+try {
+    currentUser = JSON.parse(localStorage.getItem('coredesk_currentUser') || 'null');
+    if (currentUser) currentUser = normalizarUsuarioGuardado(currentUser);
+} catch (e) { currentUser = null; }
+
 let currentView = 'inicio';
 let editingProductId = null;
 let currentImageData = null;
+let imagenEsArchivoSubido = false;
+
+// El usuario guardado en localStorage ya viene con forma { id, name, email,
+// role, registeredAt }; si viene con la forma de la API, también se acepta.
+function normalizarUsuarioGuardado(u) {
+    return {
+        id: u.id ?? u.id_usuario,
+        name: u.name ?? u.nombre,
+        email: u.email,
+        role: u.role ?? u.rol,
+        registeredAt: u.registeredAt ?? (u.fecha_registro ? String(u.fecha_registro).slice(0, 10) : 'N/A')
+    };
+}
+
+// ========== NORMALIZADORES (API -> forma del prototipo) ==========
+// La API devuelve los campos en español (nombre, marca, precio...); el resto
+// de la página usa los nombres del prototipo (name, brand, price...). Estas
+// funciones traducen un objeto de la API a la forma que ya usaba app.js,
+// así ningún HTML ni ninguna función de renderizado tuvo que cambiar.
+
+function normalizarProducto(p) {
+    const id = p.id_producto || p.id;
+    let specs = {};
+    if (Array.isArray(p.especificaciones)) {
+        p.especificaciones.forEach((s) => { if (s.clave) specs[s.clave] = s.valor; });
+    } else if (p.specs) {
+        specs = p.specs;
+    }
+    const precio = Number(p.precio);
+    return {
+        id: id,
+        id_producto: id,
+        name: p.nombre,
+        nombre: p.nombre,
+        brand: p.marca,
+        marca: p.marca,
+        category: p.categoria,
+        categoria: p.categoria,
+        price: precio,
+        precio: precio,
+        // Precio con descuento que ya calcula la API (null si no hay oferta).
+        precio_final: (p.precio_final !== undefined && p.precio_final !== null) ? Number(p.precio_final) : null,
+        stock: Number(p.stock),
+        unidades_vendidas: Number(p.unidades_vendidas || 0),
+        sold: Number(p.unidades_vendidas ?? p.vendido ?? 0),
+        vendido: Number(p.unidades_vendidas ?? p.vendido ?? 0),
+        shortDesc: p.descripcion_breve || '',
+        descripcion_breve: p.descripcion_breve || '',
+        image: imagenDeProducto(id, p.imagen_url),
+        imagen_url: p.imagen_url || null,
+        specs: specs,
+        // La calificación es el promedio de la tabla resenas (null si no hay).
+        rating: (p.calificacion !== null && p.calificacion !== undefined) ? Number(p.calificacion) : 0,
+        reviews: Number(p.total_resenas || 0),
+        total_resenas: Number(p.total_resenas || 0),
+        isNew: Boolean(p.es_nuevo),
+        es_nuevo: Boolean(p.es_nuevo),
+        isOffer: Boolean(p.isOffer ?? p.en_oferta),
+        en_oferta: Boolean(p.en_oferta ?? p.isOffer),
+        discount: Number(p.descuento || 0),
+        descuento: Number(p.descuento || 0),
+        fecha_creacion: p.fecha_creacion
+    };
+}
+
+function normalizarOrden(o) {
+    return {
+        id: o.id_orden,
+        id_orden: o.id_orden,
+        userId: o.id_usuario,
+        userName: o.cliente,
+        userEmail: o.cliente_email,
+        items: (o.articulos || []).map((a) => ({
+            productId: a.id_producto,
+            name: a.nombre,
+            price: Number(a.precio_unitario),
+            qty: a.cantidad
+        })),
+        total: Number(o.total),
+        status: o.estado,
+        date: o.fecha ? String(o.fecha).slice(0, 10) : '',
+        shipping: Number(o.envio)
+    };
+}
+
+function normalizarUsuario(u) {
+    return {
+        id: u.id_usuario,
+        id_usuario: u.id_usuario,
+        name: u.nombre,
+        nombre: u.nombre,
+        email: u.email,
+        role: u.rol,
+        rol: u.rol,
+        registeredAt: u.fecha_registro ? String(u.fecha_registro).slice(0, 10) : 'N/A',
+        total_ordenes: u.total_ordenes
+    };
+}
+
+// ========== CARGA DE DATOS ==========
+async function cargarProductos() {
+    try {
+        const datos = await apiFetch('/api/productos');
+        products = (Array.isArray(datos) ? datos : []).map(normalizarProducto);
+        productosCargados = true;
+    } catch (e) {
+        productosCargados = false;
+        console.warn('No se pudieron cargar los productos:', e);
+    }
+    return products;
+}
+
+async function cargarCarrito() {
+    if (!currentUser) {
+        cartData = { articulos: [], subtotal: 0, envio: 0, total: 0 };
+        return cartData;
+    }
+    try {
+        const datos = await apiFetch('/api/carrito');
+        cartData = {
+            articulos: Array.isArray(datos.articulos) ? datos.articulos : [],
+            subtotal: Number(datos.subtotal || 0),
+            envio: Number(datos.envio || 0),
+            total: Number(datos.total || 0)
+        };
+    } catch (e) {
+        console.warn('No se pudo cargar el carrito:', e);
+        cartData = { articulos: [], subtotal: 0, envio: 0, total: 0 };
+    }
+    return cartData;
+}
+
+// Valida el token guardado contra la API. Si ya no es válido, se borra la
+// sesión; si solo no hay internet/servidor, se conserva el usuario guardado.
+async function restaurarSesion() {
+    if (!getToken() || !currentUser) return;
+    try {
+        const datos = await apiFetch('/api/auth/me');
+        if (datos && datos.usuario) {
+            currentUser = normalizarUsuario(datos.usuario);
+            guardarUsuarioLocal();
+        }
+    } catch (e) {
+        console.warn('No se pudo validar la sesión:', e);
+    }
+}
+
+function guardarUsuarioLocal() {
+    try { localStorage.setItem('coredesk_currentUser', JSON.stringify(currentUser)); } catch (e) { /* nada */ }
+}
 
 // ========== INICIALIZACIÓN ==========
-document.addEventListener('DOMContentLoaded', () => {
-    console.log('✅ CoreDesk Tech iniciado');
+document.addEventListener('DOMContentLoaded', async () => {
+    console.log('✅ CoreDesk Tech iniciado (conectado a la API)');
     renderUserArea();
-    renderFeaturedProducts();
+    await restaurarSesion();
+    renderUserArea();
+    await cargarProductos();
     renderCatalog();
+    renderFeaturedProducts();
     renderOffers();
+    await cargarCarrito();
     updateCartBadge();
-    
+    updateCartModal();
+
     const globalSearch = document.getElementById('global-search');
     if (globalSearch) {
         globalSearch.addEventListener('input', () => {
@@ -94,14 +316,14 @@ document.addEventListener('DOMContentLoaded', () => {
 function renderUserArea() {
     const userArea = document.getElementById('user-area');
     if (!userArea) return;
-    
+
     if (!currentUser) {
         userArea.innerHTML = `<button class="login-btn" onclick="openAuthModal()">Iniciar Sesión</button>`;
     } else {
         const initial = currentUser.name.charAt(0).toUpperCase();
         const avatarClass = currentUser.role === 'admin' ? 'user-avatar admin' : 'user-avatar';
         const roleBadge = currentUser.role === 'admin' ? '<span class="badge-role admin">Admin</span>' : '<span class="badge-role">Cliente</span>';
-        
+
         userArea.innerHTML = `
             <div class="user-menu">
                 <button class="user-menu-btn" onclick="toggleUserDropdown(event)">
@@ -122,7 +344,7 @@ function renderUserArea() {
             </div>
         `;
     }
-    
+
     const navAdminItem = document.getElementById('nav-admin-item');
     if (navAdminItem) navAdminItem.style.display = (currentUser && currentUser.role === 'admin') ? 'block' : 'none';
 }
@@ -155,7 +377,7 @@ function switchAuthTab(tab) {
     const tabLogin = document.getElementById('tab-login');
     const tabRegister = document.getElementById('tab-register');
     const title = document.getElementById('auth-title');
-    
+
     if (tab === 'login') {
         loginForm.style.display = 'block';
         registerForm.style.display = 'none';
@@ -170,50 +392,65 @@ function switchAuthTab(tab) {
         title.textContent = 'Crear Cuenta';
     }
 }
-function handleLogin(event) {
+
+// Guarda la sesión que devuelve la API: solo el token y los datos públicos
+// del usuario. La contraseña nunca se guarda.
+function guardarSesion(datos) {
+    setToken(datos.token);
+    currentUser = normalizarUsuario(datos.usuario);
+    guardarUsuarioLocal();
+    renderUserArea();
+}
+
+async function handleLogin(event) {
     event.preventDefault();
     const email = document.getElementById('login-email').value.trim().toLowerCase();
     const password = document.getElementById('login-password').value;
-    const user = registeredUsers.find(u => u.email.toLowerCase() === email && u.password === password);
-    if (!user) return alert('❌ Credenciales incorrectas.');
-    
-    currentUser = user;
-    saveToStorage('coredesk_currentUser', currentUser);
-    renderUserArea();
-    closeAuthModal();
-    navigateTo(user.role === 'admin' ? 'admin-panel' : 'inicio');
+    try {
+        const datos = await apiFetch('/api/auth/login', {
+            method: 'POST',
+            body: JSON.stringify({ email, password })
+        });
+        guardarSesion(datos);
+        closeAuthModal();
+        await cargarCarrito();
+        updateCartBadge();
+        updateCartModal();
+        navigateTo(currentUser.role === 'admin' ? 'admin-panel' : 'inicio');
+    } catch (e) {
+        mostrarError(e);
+    }
 }
-function handleRegister(event) {
+async function handleRegister(event) {
     event.preventDefault();
     const name = document.getElementById('reg-name').value.trim();
     const email = document.getElementById('reg-email').value.trim().toLowerCase();
     const password = document.getElementById('reg-password').value;
     const password2 = document.getElementById('reg-password2').value;
-    
+
     if (password !== password2) return alert('❌ Las contraseñas no coinciden.');
     if (password.length < 6) return alert('❌ Mínimo 6 caracteres.');
-    if (registeredUsers.some(u => u.email.toLowerCase() === email)) return alert('❌ Correo ya registrado.');
-    
-    const newUser = {
-        id: registeredUsers.length + 1, name, email, password,
-        role: 'cliente', registeredAt: new Date().toISOString().split('T')[0]
-    };
-    registeredUsers.push(newUser);
-    saveToStorage('coredesk_users', registeredUsers);
-    
-    currentUser = newUser;
-    saveToStorage('coredesk_currentUser', currentUser);
-    renderUserArea();
-    closeAuthModal();
-    navigateTo('inicio');
-    alert(`🎉 ¡Bienvenido, ${name}!`);
+
+    try {
+        const datos = await apiFetch('/api/auth/register', {
+            method: 'POST',
+            body: JSON.stringify({ nombre: name, email, password, password2 })
+        });
+        guardarSesion(datos);
+        closeAuthModal();
+        await cargarCarrito();
+        updateCartBadge();
+        updateCartModal();
+        navigateTo('inicio');
+        alert(`🎉 ¡Bienvenido, ${name}!`);
+    } catch (e) {
+        mostrarError(e);
+    }
 }
 function logout() {
     if (!confirm('¿Cerrar sesión?')) return;
-    currentUser = null;
-    saveToStorage('coredesk_currentUser', null);
-    renderUserArea();
-    closeUserDropdown();
+    cerrarSesionLocal();
+    updateCartModal();
     navigateTo('inicio');
 }
 
@@ -228,15 +465,15 @@ function navigateTo(viewId) {
         openAuthModal();
         return;
     }
-    
+
     document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
     document.getElementById(viewId)?.classList.add('active');
-    
+
     document.querySelectorAll('.nav-menu a').forEach(a => a.classList.remove('active'));
     document.querySelector(`.nav-menu a[data-view="${viewId}"]`)?.classList.add('active');
-    
+
     currentView = viewId;
-    
+
     if (viewId === 'inicio') renderFeaturedProducts();
     if (viewId === 'catalogo') renderCatalog();
     if (viewId === 'ofertas') renderOffers();
@@ -246,25 +483,35 @@ function navigateTo(viewId) {
         switchAdminTab('dashboard');
     }
     if (viewId === 'mi-perfil') renderProfile('datos');
-    
+
     window.scrollTo({ top: 0, behavior: 'smooth' });
     document.getElementById('nav-menu').classList.remove('mobile-open');
 }
 
 // ========== PRODUCTOS ==========
-function renderFeaturedProducts() {
+// Los destacados y las ofertas se piden a la API en cada vista; el catálogo
+// usa el caché de "products" (cargado al inicio) y filtra en el navegador,
+// igual que el prototipo.
+async function renderFeaturedProducts() {
     const container = document.getElementById('featured-products');
     if (!container) return;
-    
+
     let featured = [];
-    if (featuredConfig.mode === 'manual' && featuredConfig.ids.length > 0) {
-        featured = featuredConfig.ids
-            .map(id => products.find(p => p.id === id))
-            .filter(p => p && p.stock > 0);
-    } else {
-        featured = [...products].filter(p => p.stock > 0).sort((a, b) => (b.sold || 0) - (a.sold || 0)).slice(0, 8);
+    try {
+        const datos = await apiFetch('/api/productos/destacados');
+        const lista = Array.isArray(datos.productos) ? datos.productos : [];
+        featured = lista.map(normalizarProducto);
+        // La API ya decide el modo: si la tabla destacados tiene filas es
+        // manual; si está vacía, automático (8 más vendidos con stock > 0).
+        if (datos.modo) {
+            featuredConfig.mode = datos.modo;
+            featuredConfig.ids = datos.modo === 'manual' ? featured.map((p) => p.id) : [];
+        }
+    } catch (e) {
+        container.innerHTML = '<p style="grid-column:1/-1;text-align:center;color:#888;">No se pudieron cargar los productos destacados. Revisa que el servidor esté prendido.</p>';
+        return;
     }
-    
+
     if (featured.length === 0) {
         container.innerHTML = '<p style="grid-column:1/-1;text-align:center;color:#888;">No hay productos destacados.</p>';
         return;
@@ -272,12 +519,21 @@ function renderFeaturedProducts() {
     container.innerHTML = featured.map(p => createProductCardHTML(p)).join('');
 }
 
-function renderOffers() {
+async function renderOffers() {
     const container = document.getElementById('offers-products');
     const noOffers = document.getElementById('no-offers');
     if (!container) return;
-    
-    const offers = products.filter(p => p.isOffer && p.stock > 0 && p.discount > 0);
+
+    let offers = [];
+    try {
+        const datos = await apiFetch('/api/productos/ofertas');
+        offers = (Array.isArray(datos) ? datos : []).map(normalizarProducto);
+    } catch (e) {
+        container.innerHTML = '<p style="grid-column:1/-1;text-align:center;color:#888;">No se pudieron cargar las ofertas. Revisa que el servidor esté prendido.</p>';
+        if (noOffers) noOffers.style.display = 'none';
+        return;
+    }
+
     if (offers.length === 0) {
         container.innerHTML = '';
         if (noOffers) noOffers.style.display = 'block';
@@ -291,7 +547,15 @@ function renderCatalog() {
     const container = document.getElementById('catalog-products');
     const noResults = document.getElementById('no-results');
     if (!container || !noResults) return;
-    
+
+    if (!productosCargados) {
+        container.innerHTML = '';
+        noResults.style.display = 'block';
+        noResults.textContent = 'No se pudo conectar con el servidor. Revisa que el back-end esté prendido (npm start) y recarga la página.';
+        return;
+    }
+    noResults.textContent = 'No se encontraron productos.';
+
     const results = applyAllFilters();
     if (results.length === 0) {
         container.innerHTML = '';
@@ -307,11 +571,11 @@ function createProductCardHTML(product, showOfferBadge = false) {
     if (showOfferBadge || product.isOffer) badges.push('<span class="product-badge oferta">Oferta</span>');
     if (product.isNew) badges.push('<span class="product-badge nuevo">Nuevo</span>');
     if (product.stock > 0) badges.push('<span class="product-badge envio">Envío Gratis</span>');
-    
+
     let priceHTML = '';
     if (product.isOffer && product.discount > 0) {
         const originalPrice = product.price;
-        const finalPrice = Math.round(originalPrice * (1 - product.discount / 100));
+        const finalPrice = getEffectivePrice(product);
         priceHTML = `
             <div class="product-price-wrapper">
                 <span class="product-price-original">$${originalPrice.toLocaleString('es-MX')}</span>
@@ -321,10 +585,10 @@ function createProductCardHTML(product, showOfferBadge = false) {
     } else {
         priceHTML = `<p class="product-price">$${product.price.toLocaleString('es-MX')} MXN</p>`;
     }
-    
-    const discountBadge = (product.isOffer && product.discount > 0) 
+
+    const discountBadge = (product.isOffer && product.discount > 0)
         ? `<span class="discount-badge">-${product.discount}%</span>` : '';
-    
+
     return `
         <div class="product-card" onclick="showProductDetail(${product.id})">
             ${discountBadge}
@@ -343,13 +607,15 @@ function createProductCardHTML(product, showOfferBadge = false) {
 }
 
 // ========== FILTROS ==========
+// Igual que en el prototipo, pero sobre el catálogo traído de la API.
+// El precio mínimo/máximo se aplica sobre el precio BASE, sin descuento.
 function applyAllFilters() {
     let filtered = [...products];
     const searchTerm = document.getElementById('global-search')?.value.toLowerCase().trim() || '';
-    
+
     if (searchTerm) {
-        filtered = filtered.filter(p => 
-            p.name.toLowerCase().includes(searchTerm) || 
+        filtered = filtered.filter(p =>
+            p.name.toLowerCase().includes(searchTerm) ||
             p.brand.toLowerCase().includes(searchTerm) ||
             p.category.toLowerCase().includes(searchTerm));
     }
@@ -358,11 +624,11 @@ function applyAllFilters() {
     }
     const selectedBrands = Array.from(document.querySelectorAll('.brand-filter:checked')).map(c => c.value);
     if (selectedBrands.length > 0) filtered = filtered.filter(p => selectedBrands.includes(p.brand));
-    
+
     const min = parseFloat(document.getElementById('min-price')?.value) || 0;
     const max = parseFloat(document.getElementById('max-price')?.value) || Infinity;
     filtered = filtered.filter(p => p.price >= min && p.price <= max);
-    
+
     const sortBy = document.getElementById('sort-select')?.value || 'default';
     switch(sortBy) {
         case 'price-asc': filtered.sort((a, b) => a.price - b.price); break;
@@ -374,26 +640,40 @@ function applyAllFilters() {
 function applyFilters() { if (currentView === 'catalogo') renderCatalog(); }
 
 // ========== DETALLE PRODUCTO ==========
-function showProductDetail(productId) {
-    const product = products.find(p => p.id === productId);
-    if (!product) return;
-    
+async function showProductDetail(productId) {
+    let product = products.find(p => p.id === productId);
+    try {
+        const detalle = await apiFetch('/api/productos/' + productId);
+        product = normalizarProducto(detalle);
+        product.resenasApi = detalle.resenas || [];
+    } catch (e) {
+        if (!product) { mostrarError(e); return; }
+        // Si falla el detalle, se muestra lo del catálogo (sin reseñas nuevas).
+        console.warn('No se pudo cargar el detalle, se usa el catálogo:', e);
+    }
+
     navigateTo('detalle-producto');
     const container = document.getElementById('product-detail-content');
     const stockClass = product.stock > 0 ? 'stock-in' : 'stock-out';
     const stockText = product.stock > 0 ? `✅ En existencia (${product.stock} disponibles)` : '❌ Agotado';
-    
+
     let specsHTML = '';
     for (const [key, value] of Object.entries(product.specs)) {
         specsHTML += `<tr><th>${key}</th><td>${value}</td></tr>`;
     }
-    
-    const productReviews = reviews.filter(r => r.productId === productId);
-    const allReviews = productReviews.length > 0 ? productReviews : [
+
+    // Las reseñas vienen del detalle de la API. Si el producto aún no tiene
+    // reseñas reales, se muestran los dos ejemplos del prototipo.
+    const resenasApi = (product.resenasApi || []).map((r) => ({
+        user: r.usuario || r.user,
+        rating: r.calificacion || r.rating,
+        comment: r.comentario || r.comment
+    }));
+    const allReviews = resenasApi.length > 0 ? resenasApi : [
         { user: "Juan Pérez", rating: 5, comment: "Excelente componente, funciona perfecto." },
         { user: "María García", rating: 4, comment: "Muy buena relación calidad-precio." }
     ];
-    
+
     let reviewsHTML = allReviews.map(r => `
         <div class="review">
             <div class="stars">${'★'.repeat(r.rating)}${'☆'.repeat(5-r.rating)}</div>
@@ -401,8 +681,8 @@ function showProductDetail(productId) {
             <p>${r.comment}</p>
         </div>
     `).join('');
-    
-    let reviewFormHTML = currentUser 
+
+    let reviewFormHTML = currentUser
         ? `<div style="background:#f8f9fa;padding:15px;border-radius:8px;margin-top:15px;">
             <h4 style="margin-bottom:10px;">✍️ Escribe tu reseña</h4>
             <div class="form-group">
@@ -425,15 +705,15 @@ function showProductDetail(productId) {
             <strong>💡 ¿Quieres dejar tu opinión?</strong>
             <p style="margin-top:5px;">Inicia sesión o <a href="#" onclick="openAuthModal(); return false;" style="color:#0056B3;font-weight:600;">crea una cuenta</a>.</p>
         </div>`;
-    
+
     let priceBlock = product.isOffer && product.discount > 0
         ? `<div style="display:flex;align-items:center;gap:12px;margin-bottom:15px;">
             <span style="text-decoration:line-through;color:#999;font-size:1.1rem;">$${product.price.toLocaleString('es-MX')}</span>
-            <span class="detail-price" style="margin:0;">$${Math.round(product.price * (1 - product.discount / 100)).toLocaleString('es-MX')} MXN</span>
+            <span class="detail-price" style="margin:0;">$${getEffectivePrice(product).toLocaleString('es-MX')} MXN</span>
             <span style="background:#dc3545;color:white;padding:4px 10px;border-radius:6px;font-size:0.75rem;font-weight:800;">-${product.discount}%</span>
            </div>`
         : `<p class="detail-price">$${product.price.toLocaleString('es-MX')} MXN</p>`;
-    
+
     container.innerHTML = `
         <div class="detail-container">
             <div class="detail-gallery">
@@ -460,7 +740,7 @@ function showProductDetail(productId) {
                 <table class="specs-table">${specsHTML}</table>
                 <div class="rating-section">
                     <h3>⭐ Valoraciones</h3>
-                    <div class="stars">${'★'.repeat(Math.floor(product.rating))}${'☆'.repeat(5-Math.floor(product.rating))} 
+                    <div class="stars">${'★'.repeat(Math.floor(product.rating))}${'☆'.repeat(5-Math.floor(product.rating))}
                         <span style="font-size:0.9rem;color:#333;">(${product.rating} / 5 - ${product.reviews} reseñas)</span>
                     </div>
                     ${reviewsHTML}
@@ -471,43 +751,66 @@ function showProductDetail(productId) {
     `;
 }
 
-function submitReview(productId) {
+async function submitReview(productId) {
     if (!currentUser) return alert('Debes iniciar sesión.');
     const rating = parseInt(document.getElementById('review-rating').value);
     const comment = document.getElementById('review-comment').value.trim();
     if (!comment) return alert('Escribe un comentario.');
-    
-    reviews.push({
-        productId, userId: currentUser.id, user: currentUser.name,
-        rating, comment, date: new Date().toISOString().split('T')[0]
-    });
-    saveToStorage('coredesk_reviews', reviews);
-    alert(`✅ ¡Gracias ${currentUser.name}! Tu reseña ha sido publicada.`);
-    showProductDetail(productId);
+
+    try {
+        await apiFetch('/api/resenas', {
+            method: 'POST',
+            body: JSON.stringify({ id_producto: productId, calificacion: rating, comentario: comment })
+        });
+        alert(`✅ ¡Gracias ${currentUser.name}! Tu reseña ha sido publicada.`);
+        await cargarProductos();
+        showProductDetail(productId);
+    } catch (e) {
+        mostrarError(e);
+    }
 }
 
 // ========== CARRITO ==========
+// El carrito vive en la base de datos (tablas carritos + carrito_items) y es
+// por usuario, así que agregar al carrito requiere haber iniciado sesión.
+// La API valida el stock y calcula subtotal, envío y total con las mismas
+// reglas del prototipo: envío gratis desde $1,000, si no $150.
 function getEffectivePrice(product) {
+    if (product.precio_final !== null && product.precio_final !== undefined) {
+        return product.precio_final;
+    }
     return (product.isOffer && product.discount > 0)
         ? Math.round(product.price * (1 - product.discount / 100))
         : product.price;
 }
 
-function addToCart(productId, event) {
+async function addToCart(productId, event) {
+    if (!currentUser) {
+        alert('Debes iniciar sesión para agregar productos al carrito.');
+        openAuthModal();
+        return;
+    }
     const product = products.find(p => p.id === productId);
     if (!product || product.stock === 0) return alert('❌ Producto agotado.');
-    
-    const existing = cart.find(item => item.id === productId);
-    if (existing) {
-        if (existing.qty < product.stock) existing.qty++;
-        else return alert('⚠️ Stock insuficiente.');
-    } else {
-        cart.push({ id: productId, qty: 1 });
+
+    try {
+        const datos = await apiFetch('/api/carrito', {
+            method: 'POST',
+            body: JSON.stringify({ id_producto: productId, cantidad: 1 })
+        });
+        cartData = {
+            articulos: datos.articulos || [],
+            subtotal: Number(datos.subtotal || 0),
+            envio: Number(datos.envio || 0),
+            total: Number(datos.total || 0)
+        };
+    } catch (e) {
+        mostrarError(e);
+        return;
     }
-    saveToStorage('coredesk_cart', cart);
     updateCartBadge();
     updateCartModal();
-    
+
     if (event?.target) {
         const btn = event.target;
         const original = btn.textContent;
@@ -517,39 +820,64 @@ function addToCart(productId, event) {
     }
 }
 
-function addToCartFromDetail(productId) {
+async function addToCartFromDetail(productId) {
+    if (!currentUser) {
+        alert('Debes iniciar sesión para agregar productos al carrito.');
+        openAuthModal();
+        return;
+    }
     const qty = parseInt(document.getElementById('detail-qty').value) || 1;
     const product = products.find(p => p.id === productId);
     if (!product || product.stock === 0) return;
     if (qty > product.stock) return alert('⚠️ Stock insuficiente.');
-    
-    const existing = cart.find(item => item.id === productId);
-    if (existing) {
-        if (existing.qty + qty <= product.stock) existing.qty += qty;
-        else return alert('⚠️ Stock insuficiente.');
-    } else {
-        cart.push({ id: productId, qty });
+
+    try {
+        const datos = await apiFetch('/api/carrito', {
+            method: 'POST',
+            body: JSON.stringify({ id_producto: productId, cantidad: qty })
+        });
+        cartData = {
+            articulos: datos.articulos || [],
+            subtotal: Number(datos.subtotal || 0),
+            envio: Number(datos.envio || 0),
+            total: Number(datos.total || 0)
+        };
+    } catch (e) {
+        mostrarError(e);
+        return;
     }
-    saveToStorage('coredesk_cart', cart);
     updateCartBadge();
     updateCartModal();
     alert('✅ Producto añadido.');
 }
 
-function removeFromCart(productId) {
-    cart = cart.filter(item => item.id !== productId);
-    saveToStorage('coredesk_cart', cart);
+async function removeFromCart(productId) {
+    try {
+        const datos = await apiFetch('/api/carrito/' + productId, { method: 'DELETE' });
+        cartData = {
+            articulos: datos.articulos || [],
+            subtotal: Number(datos.subtotal || 0),
+            envio: Number(datos.envio || 0),
+            total: Number(datos.total || 0)
+        };
+    } catch (e) {
+        mostrarError(e);
+        return;
+    }
     updateCartBadge();
     updateCartModal();
 }
 function updateCartBadge() {
     const badge = document.getElementById('cart-badge');
-    if (badge) badge.textContent = cart.reduce((sum, item) => sum + item.qty, 0);
+    if (badge) badge.textContent = cartData.articulos.reduce((sum, item) => sum + Number(item.cantidad || 0), 0);
 }
-function toggleCartModal() {
+async function toggleCartModal() {
     const modal = document.getElementById('cart-modal');
     modal.classList.toggle('open');
-    if (modal.classList.contains('open')) updateCartModal();
+    if (modal.classList.contains('open')) {
+        await cargarCarrito();
+        updateCartModal();
+    }
 }
 function closeCartModalOutside(event) {
     if (event.target === event.currentTarget) toggleCartModal();
@@ -557,90 +885,70 @@ function closeCartModalOutside(event) {
 function updateCartModal() {
     const container = document.getElementById('cart-items-list');
     if (!container) return;
-    
-    if (cart.length === 0) {
+
+    if (cartData.articulos.length === 0) {
         container.innerHTML = '<p class="empty-cart">Tu carrito está vacío.</p>';
         document.getElementById('cart-subtotal').textContent = '$0.00';
         document.getElementById('cart-shipping').textContent = '$0.00';
         document.getElementById('cart-total').textContent = '$0.00';
         return;
     }
-    
-    let subtotal = 0;
-    container.innerHTML = cart.map(item => {
-        const product = products.find(p => p.id === item.id);
-        if (!product) return '';
-        const unitPrice = getEffectivePrice(product);
-        const itemTotal = unitPrice * item.qty;
-        subtotal += itemTotal;
+
+    container.innerHTML = cartData.articulos.map(item => {
+        const unitPrice = Number(item.precio_final);
+        const itemTotal = unitPrice * item.cantidad;
         return `
             <div class="cart-item">
                 <div class="cart-item-info">
-                    <h4>${product.name}</h4>
-                    <p>$${unitPrice.toLocaleString('es-MX')} x ${item.qty} = $${itemTotal.toLocaleString('es-MX')}</p>
+                    <h4>${item.nombre}</h4>
+                    <p>$${unitPrice.toLocaleString('es-MX')} x ${item.cantidad} = $${itemTotal.toLocaleString('es-MX')}</p>
                 </div>
-                <button class="cart-item-remove" onclick="removeFromCart(${product.id})">✕</button>
+                <button class="cart-item-remove" onclick="removeFromCart(${item.id_producto})">✕</button>
             </div>
         `;
     }).join('');
-    
-    const shipping = subtotal >= 1000 ? 0 : 150;
-    const total = subtotal + shipping;
+
+    const subtotal = cartData.subtotal;
+    const shipping = cartData.envio;
+    const total = cartData.total;
     document.getElementById('cart-subtotal').textContent = `$${subtotal.toLocaleString('es-MX')}`;
     document.getElementById('cart-shipping').textContent = shipping === 0 ? 'Gratis' : `$${shipping.toLocaleString('es-MX')}`;
     document.getElementById('cart-total').textContent = `$${total.toLocaleString('es-MX')}`;
 }
 
-function checkout() {
-    if (cart.length === 0) return alert('Tu carrito está vacío.');
+async function checkout() {
+    if (cartData.articulos.length === 0) return alert('Tu carrito está vacío.');
     if (!currentUser) {
         alert('Debes iniciar sesión para completar tu compra.');
         document.getElementById('cart-modal').classList.remove('open');
         openAuthModal();
         return;
     }
-    for (const item of cart) {
-        const product = products.find(p => p.id === item.id);
-        if (!product || item.qty > product.stock) {
-            return alert(`❌ Stock insuficiente para ${product?.name || 'un producto'}.`);
-        }
-    }
-    
-    const items = cart.map(item => {
-        const p = products.find(prod => prod.id === item.id);
-        return { productId: p.id, name: p.name, price: getEffectivePrice(p), qty: item.qty };
-    });
-    
-    const subtotal = items.reduce((sum, i) => sum + (i.price * i.qty), 0);
-    const shipping = subtotal >= 1000 ? 0 : 150;
-    const total = subtotal + shipping;
-    
+
+    const total = cartData.total;
     if (!confirm(`¿Confirmar compra por $${total.toLocaleString('es-MX')} MXN?`)) return;
-    
-    const newOrder = {
-        id: 1000 + orders.length + 1,
-        userId: currentUser.id, userName: currentUser.name, userEmail: currentUser.email,
-        items, total, status: 'pagada',
-        date: new Date().toISOString().split('T')[0], shipping
-    };
-    orders.push(newOrder);
-    saveToStorage('coredesk_orders', orders);
-    
-    cart.forEach(item => {
-        const p = products.find(prod => prod.id === item.id);
-        if (p) {
-            p.stock -= item.qty;
-            p.sold = (p.sold || 0) + item.qty;
-        }
-    });
-    saveToStorage('coredesk_products', products);
-    
-    cart = [];
-    saveToStorage('coredesk_cart', cart);
+
+    // El servidor valida el stock de cada artículo, crea la orden como
+    // "pagada", descuenta el stock, suma las unidades vendidas y vacía el
+    // carrito, todo en una transacción.
+    let orden;
+    try {
+        const creada = await apiFetch('/api/ordenes', { method: 'POST', body: JSON.stringify({}) });
+        orden = normalizarOrden(creada);
+    } catch (e) {
+        mostrarError(e);
+        return;
+    }
+
+    orders.push(orden);
+    await cargarProductos();
+    await cargarCarrito();
     updateCartBadge();
     updateCartModal();
     document.getElementById('cart-modal').classList.remove('open');
-    alert(`🎉 ¡Gracias por tu compra!\n\nOrden #${newOrder.id} por $${total.toLocaleString('es-MX')} MXN`);
+    if (currentView === 'catalogo') renderCatalog();
+    if (currentView === 'inicio') renderFeaturedProducts();
+    alert(`🎉 ¡Gracias por tu compra!\n\nOrden #${orden.id} por $${total.toLocaleString('es-MX')} MXN`);
 }
 
 // ========== PANEL ADMIN ==========
@@ -648,10 +956,10 @@ function switchAdminTab(tab, event) {
     document.querySelectorAll('.admin-nav-item').forEach(t => t.classList.remove('active'));
     if (event) event.currentTarget.classList.add('active');
     else document.querySelector(`.admin-nav-item[data-tab="${tab}"]`)?.classList.add('active');
-    
+
     document.querySelectorAll('.admin-section').forEach(s => s.classList.remove('active'));
     document.getElementById(`admin-${tab}`)?.classList.add('active');
-    
+
     const titles = {
         dashboard: { title: 'Dashboard', sub: 'Resumen general de CoreDesk Tech' },
         inventario: { title: 'Inventario', sub: 'Gestión completa del catálogo de productos' },
@@ -660,14 +968,14 @@ function switchAdminTab(tab, event) {
         ventas: { title: 'Ventas', sub: 'Historial y seguimiento de órdenes' },
         usuarios: { title: 'Usuarios', sub: 'Administración de cuentas registradas' }
     };
-    
+
     const titleEl = document.getElementById('admin-page-title');
     const subEl = document.getElementById('admin-page-subtitle');
     if (titleEl && titles[tab]) {
         titleEl.textContent = titles[tab].title;
         subEl.textContent = titles[tab].sub;
     }
-    
+
     if (tab === 'dashboard') renderAdminDashboard();
     if (tab === 'inventario') renderAdminTable();
     if (tab === 'destacados') renderFeaturedAdmin();
@@ -684,72 +992,79 @@ function updateAdminCounters() {
     const co = document.getElementById('count-orders');
     const cu = document.getElementById('count-users');
     if (cp) cp.textContent = products.length;
-    if (co) co.textContent = orders.length;
-    if (cu) cu.textContent = registeredUsers.length;
+    if (co) co.textContent = adminStats ? adminStats.total_ordenes : orders.length;
+    if (cu) cu.textContent = adminStats ? adminStats.total_usuarios : registeredUsers.length;
 }
 
-function renderAdminDashboard() {
+async function renderAdminDashboard() {
     updateAdminCounters();
-    const totalRevenue = orders.filter(o => o.status !== 'cancelada').reduce((sum, o) => sum + o.total, 0);
-    const activeProducts = products.filter(p => p.stock > 0).length;
-    
+    try {
+        adminStats = await apiFetch('/api/admin/dashboard');
+    } catch (e) {
+        mostrarError(e);
+        return;
+    }
+    updateAdminCounters();
+
     const ingEl = document.getElementById('stat-ingresos');
     const ordEl = document.getElementById('stat-ordenes');
     const prodEl = document.getElementById('stat-productos');
     const usrEl = document.getElementById('stat-usuarios');
-    if (ingEl) ingEl.textContent = `$${totalRevenue.toLocaleString('es-MX')}`;
-    if (ordEl) ordEl.textContent = orders.length;
-    if (prodEl) prodEl.textContent = activeProducts;
-    if (usrEl) usrEl.textContent = registeredUsers.length;
-    
-    const recentSales = [...orders].sort((a, b) => new Date(b.date) - new Date(a.date)).slice(0, 5);
+    if (ingEl) ingEl.textContent = `$${Number(adminStats.ingresos).toLocaleString('es-MX')}`;
+    if (ordEl) ordEl.textContent = adminStats.total_ordenes;
+    if (prodEl) prodEl.textContent = adminStats.productos_activos;
+    if (usrEl) usrEl.textContent = adminStats.total_usuarios;
+
     const recentEl = document.getElementById('recent-sales');
     if (recentEl) {
-        recentEl.innerHTML = recentSales.length === 0
+        const ventas = adminStats.ventas_recientes || [];
+        recentEl.innerHTML = ventas.length === 0
             ? '<div class="empty-state-mini">📭 Sin ventas registradas</div>'
-            : recentSales.map(o => {
-                const initial = o.userName.charAt(0).toUpperCase();
+            : ventas.map(o => {
+                const nombre = o.cliente || 'Cliente';
+                const initial = nombre.charAt(0).toUpperCase();
+                const fecha = o.fecha ? String(o.fecha).slice(0, 10) : '';
                 return `
                     <div class="dash-item">
                         <div class="dash-item-avatar">${initial}</div>
                         <div class="dash-item-info">
-                            <strong>Orden #${o.id} · ${o.userName}</strong>
-                            <small>${o.date} · ${o.items.length} producto(s)</small>
+                            <strong>Orden #${o.id_orden} · ${nombre}</strong>
+                            <small>${fecha} · ${o.estado}</small>
                         </div>
-                        <span class="dash-item-amount">$${o.total.toLocaleString('es-MX')}</span>
+                        <span class="dash-item-amount">$${Number(o.total).toLocaleString('es-MX')}</span>
                     </div>
                 `;
             }).join('');
     }
-    
-    const lowStock = products.filter(p => p.stock < 10).sort((a, b) => a.stock - b.stock);
+
     const lowEl = document.getElementById('low-stock-list');
     if (lowEl) {
-        lowEl.innerHTML = lowStock.length === 0
+        const bajos = adminStats.stock_bajo || [];
+        lowEl.innerHTML = bajos.length === 0
             ? '<div class="empty-state-mini">✅ Todo el inventario tiene stock suficiente</div>'
-            : lowStock.slice(0, 5).map(p => `
+            : bajos.slice(0, 5).map(p => `
                 <div class="dash-item">
                     <div class="dash-item-info">
-                        <strong>${p.name}</strong>
-                        <small>${p.category} · ${p.brand}</small>
+                        <strong>${p.nombre}</strong>
+                        <small>ID #${p.id_producto}</small>
                     </div>
                     <span class="stock-pill ${p.stock === 0 ? 'danger' : ''}">${p.stock} uds</span>
                 </div>
             `).join('');
     }
-    
-    const topProducts = [...products].sort((a, b) => (b.sold || 0) - (a.sold || 0)).slice(0, 5);
+
     const topEl = document.getElementById('top-products');
     if (topEl) {
-        topEl.innerHTML = topProducts.map((p, i) => `
+        const top = adminStats.top_productos || [];
+        topEl.innerHTML = top.map((p, i) => `
             <div class="top-product-row">
                 <span class="top-rank-badge rank-${i + 1}">${i + 1}</span>
                 <div class="top-product-info">
-                    <strong>${p.name}</strong>
-                    <small>${p.category} · ${p.brand}</small>
+                    <strong>${p.nombre}</strong>
+                    <small>${p.stock} en stock</small>
                 </div>
                 <div class="top-product-sales">
-                    <strong>${p.sold || 0}</strong>
+                    <strong>${p.unidades_vendidas || 0}</strong>
                     <small>vendidos</small>
                 </div>
             </div>
@@ -757,26 +1072,27 @@ function renderAdminDashboard() {
     }
 }
 
-function renderAdminTable() {
+async function renderAdminTable() {
     if (!currentUser || currentUser.role !== 'admin') return;
     const tbody = document.getElementById('admin-table-body');
     if (!tbody) return;
+    if (!productosCargados) await cargarProductos();
     updateAdminCounters();
-    
+
     const searchTerm = document.getElementById('admin-search')?.value.toLowerCase().trim() || '';
     const categoryFilter = document.getElementById('admin-filter-category')?.value || '';
-    
-    let filtered = products.filter(p => 
+
+    let filtered = products.filter(p =>
         p.name.toLowerCase().includes(searchTerm) ||
         p.brand.toLowerCase().includes(searchTerm) ||
         p.category.toLowerCase().includes(searchTerm));
     if (categoryFilter) filtered = filtered.filter(p => p.category === categoryFilter);
-    
+
     if (filtered.length === 0) {
         tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;padding:40px;color:#888;">No se encontraron productos.</td></tr>';
         return;
     }
-    
+
     tbody.innerHTML = filtered.map(p => {
         let stockClass = 'high';
         if (p.stock === 0) stockClass = 'low';
@@ -809,18 +1125,49 @@ function renderAdminTable() {
 }
 
 // ========== ADMIN DESTACADOS ==========
-function setFeaturedMode(mode) {
-    featuredConfig.mode = mode;
-    saveToStorage('coredesk_featured', featuredConfig);
+// La API decide el modo con la tabla destacados: si tiene filas es manual,
+// si está vacía es automático. Por eso guardar la lista es un PUT con la
+// lista completa, y el modo automático es un PUT con la lista vacía.
+async function guardarDestacados() {
+    await apiFetch('/api/admin/destacados', {
+        method: 'PUT',
+        body: JSON.stringify({ ids: featuredConfig.ids || [] })
+    });
+}
+
+async function setFeaturedMode(mode) {
+    try {
+        if (mode === 'auto') {
+            featuredConfig = { mode: 'auto', ids: [] };
+            await guardarDestacados();
+        } else {
+            featuredConfig.mode = 'manual';
+            if (featuredConfig.ids.length > 0) await guardarDestacados();
+        }
+    } catch (e) {
+        mostrarError(e);
+        return;
+    }
     renderFeaturedAdmin();
     renderFeaturedProducts();
 }
 
-function renderFeaturedAdmin() {
+async function renderFeaturedAdmin() {
+    try {
+        const datos = await apiFetch('/api/admin/destacados');
+        featuredConfig = {
+            mode: datos.modo || 'auto',
+            ids: (datos.destacados || []).map((d) => d.id_producto)
+        };
+    } catch (e) {
+        mostrarError(e);
+        return;
+    }
+
     document.querySelectorAll('input[name="featured-mode"]').forEach(r => {
         r.checked = (r.value === featuredConfig.mode);
     });
-    
+
     const manualSection = document.getElementById('featured-manual-section');
     if (manualSection) {
         manualSection.style.display = featuredConfig.mode === 'manual' ? 'block' : 'none';
@@ -833,15 +1180,15 @@ function renderFeaturedActiveList() {
     const container = document.getElementById('featured-active-list');
     const countEl = document.getElementById('featured-count');
     if (!container) return;
-    
+
     const activeIds = featuredConfig.ids || [];
     if (countEl) countEl.textContent = activeIds.length;
-    
+
     if (activeIds.length === 0) {
         container.innerHTML = '<div class="empty-state-mini">Aún no has seleccionado productos.</div>';
         return;
     }
-    
+
     container.innerHTML = activeIds.map((id, index) => {
         const p = products.find(prod => prod.id === id);
         if (!p) return '';
@@ -866,24 +1213,24 @@ function renderFeaturedActiveList() {
 function renderFeaturedCandidates() {
     const container = document.getElementById('featured-candidates-list');
     if (!container) return;
-    
+
     const searchTerm = document.getElementById('featured-search')?.value.toLowerCase().trim() || '';
     const activeIds = featuredConfig.ids || [];
     let candidates = products.filter(p => !activeIds.includes(p.id));
-    
+
     if (searchTerm) {
-        candidates = candidates.filter(p => 
+        candidates = candidates.filter(p =>
             p.name.toLowerCase().includes(searchTerm) ||
             p.brand.toLowerCase().includes(searchTerm) ||
             p.category.toLowerCase().includes(searchTerm));
     }
     candidates.sort((a, b) => (b.sold || 0) - (a.sold || 0));
-    
+
     if (candidates.length === 0) {
         container.innerHTML = '<div class="empty-state-mini">No hay productos disponibles.</div>';
         return;
     }
-    
+
     container.innerHTML = candidates.map(p => `
         <div class="featured-item">
             <img src="${p.image}" alt="">
@@ -896,39 +1243,61 @@ function renderFeaturedCandidates() {
     `).join('');
 }
 
-function addFeatured(productId) {
+async function addFeatured(productId) {
     if (!featuredConfig.ids) featuredConfig.ids = [];
     if (featuredConfig.ids.length >= 8) return alert('⚠️ Máximo 8 productos destacados.');
     if (featuredConfig.ids.includes(productId)) return;
     featuredConfig.ids.push(productId);
-    saveToStorage('coredesk_featured', featuredConfig);
+    featuredConfig.mode = 'manual';
+    try {
+        await guardarDestacados();
+    } catch (e) {
+        featuredConfig.ids = featuredConfig.ids.filter((id) => id !== productId);
+        mostrarError(e);
+        return;
+    }
     renderFeaturedActiveList();
     renderFeaturedCandidates();
     renderFeaturedProducts();
 }
 
-function removeFeatured(productId) {
+async function removeFeatured(productId) {
     featuredConfig.ids = (featuredConfig.ids || []).filter(id => id !== productId);
-    saveToStorage('coredesk_featured', featuredConfig);
+    try {
+        await guardarDestacados();
+    } catch (e) {
+        mostrarError(e);
+        return;
+    }
     renderFeaturedActiveList();
     renderFeaturedCandidates();
     renderFeaturedProducts();
 }
 
-function moveFeatured(index, direction) {
+async function moveFeatured(index, direction) {
     const ids = featuredConfig.ids || [];
     const newIndex = index + direction;
     if (newIndex < 0 || newIndex >= ids.length) return;
     [ids[index], ids[newIndex]] = [ids[newIndex], ids[index]];
-    saveToStorage('coredesk_featured', featuredConfig);
+    try {
+        await guardarDestacados();
+    } catch (e) {
+        [ids[index], ids[newIndex]] = [ids[newIndex], ids[index]];
+        mostrarError(e);
+        return;
+    }
     renderFeaturedActiveList();
     renderFeaturedProducts();
 }
 
-function autoFillFeatured() {
-    const top8 = [...products].filter(p => p.stock > 0).sort((a, b) => (b.sold || 0) - (a.sold || 0)).slice(0, 8);
-    featuredConfig.ids = top8.map(p => p.id);
-    saveToStorage('coredesk_featured', featuredConfig);
+async function autoFillFeatured() {
+    try {
+        const datos = await apiFetch('/api/admin/destacados/auto', { method: 'POST', body: JSON.stringify({}) });
+        featuredConfig = { mode: 'manual', ids: datos.destacados || [] };
+    } catch (e) {
+        mostrarError(e);
+        return;
+    }
     renderFeaturedActiveList();
     renderFeaturedCandidates();
     renderFeaturedProducts();
@@ -936,29 +1305,51 @@ function autoFillFeatured() {
 }
 
 // ========== ADMIN OFERTAS ==========
-function renderOffersAdminTable() {
+async function renderOffersAdminTable() {
     const tbody = document.getElementById('offers-table-body');
     if (!tbody) return;
-    
+
+    let filas;
+    try {
+        filas = await apiFetch('/api/admin/ofertas');
+    } catch (e) {
+        tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;padding:40px;color:#888;">No se pudieron cargar las ofertas. Revisa que el servidor esté prendido.</td></tr>';
+        return;
+    }
+
     const searchTerm = document.getElementById('offers-search')?.value.toLowerCase().trim() || '';
     const filter = document.getElementById('offers-filter')?.value || 'all';
-    
-    let filtered = products.filter(p => 
+
+    let lista = (Array.isArray(filas) ? filas : []).map((f) => {
+        const delCatalogo = products.find((p) => p.id === f.id_producto);
+        return {
+            id: f.id_producto,
+            name: f.nombre,
+            price: Number(f.precio),
+            brand: f.marca,
+            category: f.categoria,
+            image: delCatalogo ? delCatalogo.image : IMAGEN_GENERICA,
+            isOffer: Boolean(f.en_oferta),
+            discount: Number(f.descuento || 0)
+        };
+    });
+
+    let filtered = lista.filter(p =>
         p.name.toLowerCase().includes(searchTerm) ||
         p.brand.toLowerCase().includes(searchTerm));
-    
+
     if (filter === 'offer') filtered = filtered.filter(p => p.isOffer);
     if (filter === 'no-offer') filtered = filtered.filter(p => !p.isOffer);
-    
+
     if (filtered.length === 0) {
         tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;padding:40px;color:#888;">No hay productos que coincidan.</td></tr>';
         return;
     }
-    
+
     tbody.innerHTML = filtered.map(p => {
         const hasDiscount = p.isOffer && p.discount > 0;
         const finalPrice = hasDiscount ? Math.round(p.price * (1 - p.discount / 100)) : null;
-        
+
         return `
             <tr>
                 <td>
@@ -970,7 +1361,7 @@ function renderOffersAdminTable() {
                         </div>
                     </div>
                 </td>
-                <td>${hasDiscount 
+                <td>${hasDiscount
                     ? `<div class="offer-price-cell">
                         <span class="original">$${p.price.toLocaleString('es-MX')}</span>
                         <span class="new">$${finalPrice.toLocaleString('es-MX')}</span>
@@ -984,12 +1375,12 @@ function renderOffersAdminTable() {
                     </label>
                 </td>
                 <td>
-                    <input type="number" min="1" max="90" value="${p.discount || 15}" 
+                    <input type="number" min="1" max="90" value="${p.discount || 15}"
                         onchange="updateDiscount(${p.id}, this.value)"
                         style="width:80px;padding:6px;border:1px solid #E0E0E0;border-radius:6px;text-align:center;">
                     <span style="margin-left:4px;">%</span>
                 </td>
-                <td>${hasDiscount 
+                <td>${hasDiscount
                     ? `<strong style="color:#dc3545;font-size:1rem;">$${finalPrice.toLocaleString('es-MX')}</strong>`
                     : '<span style="color:#999;">—</span>'}
                 </td>
@@ -1001,27 +1392,39 @@ function renderOffersAdminTable() {
     }).join('');
 }
 
-function toggleOffer(productId, isActive) {
+async function toggleOffer(productId, isActive) {
     const product = products.find(p => p.id === productId);
-    if (!product) return;
-    product.isOffer = isActive;
-    if (isActive && (!product.discount || product.discount === 0)) {
-        product.discount = 15;
+    const descuento = (product && product.discount > 0) ? product.discount : 15;
+    try {
+        await apiFetch('/api/admin/ofertas/' + productId, {
+            method: 'PUT',
+            body: JSON.stringify({ activa: isActive, porcentaje_descuento: descuento })
+        });
+    } catch (e) {
+        mostrarError(e);
+        renderOffersAdminTable();
+        return;
     }
-    saveToStorage('coredesk_products', products);
+    await cargarProductos();
     renderOffersAdminTable();
     renderOffers();
     renderCatalog();
     renderFeaturedProducts();
 }
 
-function updateDiscount(productId, value) {
-    const product = products.find(p => p.id === productId);
-    if (!product) return;
+async function updateDiscount(productId, value) {
     const discount = Math.max(1, Math.min(90, parseInt(value) || 15));
-    product.discount = discount;
-    product.isOffer = true;
-    saveToStorage('coredesk_products', products);
+    try {
+        await apiFetch('/api/admin/ofertas/' + productId, {
+            method: 'PUT',
+            body: JSON.stringify({ activa: true, porcentaje_descuento: discount })
+        });
+    } catch (e) {
+        mostrarError(e);
+        renderOffersAdminTable();
+        return;
+    }
+    await cargarProductos();
     renderOffersAdminTable();
     renderOffers();
     renderCatalog();
@@ -1029,14 +1432,17 @@ function updateDiscount(productId, value) {
 }
 
 // ========== VENTAS CON FILTRO DE FECHAS ==========
+// La semana empieza el lunes, como en el prototipo. Las fechas se mandan
+// a la API (?desde&hasta) y la API devuelve solo las órdenes de ese rango;
+// la búsqueda por cliente y el filtro por estado se aplican en el navegador.
 function getDateRange(type) {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
-    
+
     const toISO = (d) => d.toISOString().split('T')[0];
     const startOfWeek = new Date(today);
     startOfWeek.setDate(today.getDate() - today.getDay() + (today.getDay() === 0 ? -6 : 1));
-    
+
     switch (type) {
         case 'hoy':
             return { from: toISO(today), to: toISO(today) };
@@ -1067,18 +1473,16 @@ function setDateFilter(type, event) {
         const range = getDateRange(type);
         dateFilter = { type, from: range.from, to: range.to };
     }
-    
-    saveToStorage('coredesk_dateFilter', dateFilter);
-    
+
     document.querySelectorAll('.date-preset').forEach(btn => btn.classList.remove('active'));
     if (type !== 'custom') {
         const textMap = { 'hoy': 'hoy', 'semana': 'esta semana', 'mes': 'este mes', 'mes-anterior': 'mes anterior', 'todo': 'todo' };
         const text = textMap[type] || '';
-        const btn = Array.from(document.querySelectorAll('.date-preset')).find(b => 
+        const btn = Array.from(document.querySelectorAll('.date-preset')).find(b =>
             b.textContent.toLowerCase().trim() === text);
         if (btn) btn.classList.add('active');
     }
-    
+
     if (type !== 'custom' && type !== 'todo') {
         const fromEl = document.getElementById('date-from');
         const toEl = document.getElementById('date-to');
@@ -1087,53 +1491,42 @@ function setDateFilter(type, event) {
             toEl.value = dateFilter.to || '';
         }
     }
-    
+
     renderOrdersTable();
 }
 
 function clearDateFilter(event) {
     if (event) event.stopPropagation();
     dateFilter = { type: 'todo', from: null, to: null };
-    saveToStorage('coredesk_dateFilter', dateFilter);
-    
+
     const fromEl = document.getElementById('date-from');
     const toEl = document.getElementById('date-to');
     if (fromEl) fromEl.value = '';
     if (toEl) toEl.value = '';
-    
+
     document.querySelectorAll('.date-preset').forEach(btn => btn.classList.remove('active'));
     const todoBtn = Array.from(document.querySelectorAll('.date-preset')).find(b => b.textContent.toLowerCase().includes('todo'));
     if (todoBtn) todoBtn.classList.add('active');
-    
+
     renderOrdersTable();
 }
 
+// Las órdenes ya vienen filtradas por fecha desde la API.
 function getFilteredOrdersByDate() {
-    let filtered = [...orders];
-    
-    if (dateFilter.from) {
-        const fromDate = new Date(dateFilter.from + 'T00:00:00');
-        filtered = filtered.filter(o => new Date(o.date + 'T00:00:00') >= fromDate);
-    }
-    if (dateFilter.to) {
-        const toDate = new Date(dateFilter.to + 'T23:59:59');
-        filtered = filtered.filter(o => new Date(o.date + 'T00:00:00') <= toDate);
-    }
-    
-    return filtered;
+    return [...orders];
 }
 
 function formatDateRangeLabel() {
     if (!dateFilter.from && !dateFilter.to) {
         return { label: 'Mostrando todas las ventas', detail: 'Sin filtro de fecha aplicado', filtering: false };
     }
-    
+
     const formatDate = (iso) => {
         if (!iso) return '';
         const d = new Date(iso + 'T00:00:00');
         return d.toLocaleDateString('es-MX', { day: '2-digit', month: 'short', year: 'numeric' });
     };
-    
+
     const typeLabels = {
         'hoy': 'Hoy',
         'semana': 'Esta semana',
@@ -1141,10 +1534,10 @@ function formatDateRangeLabel() {
         'mes-anterior': 'Mes anterior',
         'custom': 'Rango personalizado'
     };
-    
+
     const label = typeLabels[dateFilter.type] || 'Rango personalizado';
     const detail = `${formatDate(dateFilter.from)} → ${formatDate(dateFilter.to)}`;
-    
+
     return { label, detail, filtering: true };
 }
 
@@ -1153,14 +1546,14 @@ function renderPeriodSummary(filteredOrders) {
     const revenue = validOrders.reduce((sum, o) => sum + o.total, 0);
     const revenueEl = document.getElementById('period-revenue');
     if (revenueEl) revenueEl.textContent = `$${revenue.toLocaleString('es-MX')}`;
-    
+
     const ordersEl = document.getElementById('period-orders');
     if (ordersEl) ordersEl.textContent = filteredOrders.length;
-    
+
     const avg = validOrders.length > 0 ? Math.round(revenue / validOrders.length) : 0;
     const avgEl = document.getElementById('period-avg');
     if (avgEl) avgEl.textContent = `$${avg.toLocaleString('es-MX')}`;
-    
+
     const productCount = {};
     validOrders.forEach(o => {
         o.items.forEach(item => {
@@ -1180,15 +1573,15 @@ function renderSalesChart(filteredOrders) {
     const periodLabel = document.getElementById('chart-period-label');
     const totalLabel = document.getElementById('chart-total-orders');
     if (!container) return;
-    
+
     if (totalLabel) totalLabel.textContent = `${filteredOrders.length} órdenes`;
-    
+
     if (filteredOrders.length === 0) {
         container.innerHTML = '<div class="chart-empty">📊 Sin datos para este período</div>';
         if (periodLabel) periodLabel.textContent = 'día';
         return;
     }
-    
+
     let groupBy = 'day';
     if (dateFilter.type === 'todo') {
         groupBy = 'month';
@@ -1197,7 +1590,7 @@ function renderSalesChart(filteredOrders) {
         groupBy = 'day';
         if (periodLabel) periodLabel.textContent = 'día';
     }
-    
+
     const groups = {};
     filteredOrders.filter(o => o.status !== 'cancelada').forEach(o => {
         let key = groupBy === 'month' ? o.date.substring(0, 7) : o.date;
@@ -1205,7 +1598,7 @@ function renderSalesChart(filteredOrders) {
         groups[key].total += o.total;
         groups[key].count++;
     });
-    
+
     let allKeys = [];
     if (groupBy === 'day' && dateFilter.from && dateFilter.to) {
         const start = new Date(dateFilter.from + 'T00:00:00');
@@ -1224,7 +1617,7 @@ function renderSalesChart(filteredOrders) {
     } else {
         allKeys = Object.keys(groups).sort();
     }
-    
+
     const maxBars = 15;
     if (allKeys.length > maxBars && groupBy === 'day') {
         const weekGroups = {};
@@ -1243,15 +1636,15 @@ function renderSalesChart(filteredOrders) {
         Object.keys(weekGroups).forEach(k => { groups[k] = weekGroups[k]; });
         if (periodLabel) periodLabel.textContent = 'semana';
     }
-    
+
     const maxValue = Math.max(...allKeys.map(k => groups[k]?.total || 0), 1);
     const todayISO = new Date().toISOString().split('T')[0];
-    
+
     const barsHTML = allKeys.map(key => {
         const value = groups[key]?.total || 0;
         const count = groups[key]?.count || 0;
         const heightPercent = maxValue > 0 ? (value / maxValue) * 100 : 0;
-        
+
         let label = '';
         if (groupBy === 'month') {
             const d = new Date(key + '-01T00:00:00');
@@ -1260,14 +1653,14 @@ function renderSalesChart(filteredOrders) {
             const d = new Date(key + 'T00:00:00');
             label = d.toLocaleDateString('es-MX', { day: '2-digit', month: 'short' });
         }
-        
+
         const isToday = key === todayISO;
         const formattedValue = value > 0 ? `$${(value / 1000).toFixed(1)}k (${count})` : 'Sin ventas';
-        
+
         return `
             <div class="chart-bar ${isToday ? 'today' : ''}">
-                <div class="chart-bar-fill" 
-                     style="height: ${Math.max(heightPercent, 2)}%" 
+                <div class="chart-bar-fill"
+                     style="height: ${Math.max(heightPercent, 2)}%"
                      data-value="${formattedValue}"
                      title="${label}: ${formattedValue}">
                 </div>
@@ -1275,17 +1668,28 @@ function renderSalesChart(filteredOrders) {
             </div>
         `;
     }).join('');
-    
+
     container.innerHTML = barsHTML;
 }
 
-function renderOrdersTable() {
+async function renderOrdersTable() {
     const container = document.getElementById('orders-table-container');
     if (!container) return;
     updateAdminCounters();
-    
+
+    try {
+        const params = new URLSearchParams();
+        if (dateFilter.from) params.set('desde', dateFilter.from);
+        if (dateFilter.to) params.set('hasta', dateFilter.to);
+        const datos = await apiFetch('/api/ordenes?' + params.toString());
+        orders = (datos.ordenes || []).map(normalizarOrden);
+    } catch (e) {
+        container.innerHTML = '<div class="empty-state-mini" style="padding:60px;background:white;border:1px solid #E0E0E0;border-radius:16px;">No se pudieron cargar las ventas. Revisa que el servidor esté prendido.</div>';
+        return;
+    }
+
     let dateFiltered = getFilteredOrdersByDate();
-    
+
     const banner = document.getElementById('date-range-banner');
     const labelEl = document.getElementById('date-range-label');
     const detailEl = document.getElementById('date-range-detail');
@@ -1293,24 +1697,24 @@ function renderOrdersTable() {
     if (labelEl) labelEl.textContent = rangeInfo.label;
     if (detailEl) detailEl.textContent = rangeInfo.detail;
     if (banner) banner.classList.toggle('filtering', rangeInfo.filtering);
-    
+
     const searchTerm = document.getElementById('orders-search')?.value.toLowerCase().trim() || '';
     const statusFilter = document.getElementById('orders-filter-status')?.value || '';
-    
-    let filtered = dateFiltered.filter(o => 
+
+    let filtered = dateFiltered.filter(o =>
         o.userName.toLowerCase().includes(searchTerm) ||
         o.userEmail.toLowerCase().includes(searchTerm) ||
         o.id.toString().includes(searchTerm));
     if (statusFilter) filtered = filtered.filter(o => o.status === statusFilter);
-    
+
     renderPeriodSummary(dateFiltered);
     renderSalesChart(dateFiltered);
-    
+
     if (filtered.length === 0) {
         container.innerHTML = '<div class="empty-state-mini" style="padding:60px;background:white;border:1px solid #E0E0E0;border-radius:16px;">📭 No hay órdenes que coincidan con los filtros.</div>';
         return;
     }
-    
+
     const sorted = [...filtered].sort((a, b) => new Date(b.date) - new Date(a.date));
     container.innerHTML = `
         <div class="table-container">
@@ -1360,7 +1764,7 @@ function syncDateFilterUI() {
     const toEl = document.getElementById('date-to');
     if (fromEl && dateFilter.from) fromEl.value = dateFilter.from;
     if (toEl && dateFilter.to) toEl.value = dateFilter.to;
-    
+
     document.querySelectorAll('.date-preset').forEach(btn => btn.classList.remove('active'));
     const textMap = {
         'hoy': 'hoy',
@@ -1371,24 +1775,32 @@ function syncDateFilterUI() {
     };
     const targetText = textMap[dateFilter.type];
     if (targetText) {
-        const btn = Array.from(document.querySelectorAll('.date-preset')).find(b => 
+        const btn = Array.from(document.querySelectorAll('.date-preset')).find(b =>
             b.textContent.toLowerCase().trim() === targetText);
         if (btn) btn.classList.add('active');
     }
 }
 
 // ========== HISTORIAL DE VENTAS ==========
-function showOrderDetail(orderId) {
-    const order = orders.find(o => o.id === orderId);
-    if (!order) return;
-    
+async function showOrderDetail(orderId) {
+    let order = orders.find(o => o.id === orderId);
+    if (!order) {
+        try {
+            const datos = await apiFetch('/api/ordenes/' + orderId);
+            order = normalizarOrden(datos);
+        } catch (e) {
+            mostrarError(e);
+            return;
+        }
+    }
+
     const itemsHTML = order.items.map(item => `
         <div class="order-detail-row">
             <span>${item.name} x${item.qty}</span>
             <span>$${(item.price * item.qty).toLocaleString('es-MX')}</span>
         </div>
     `).join('');
-    
+
     document.getElementById('order-modal-title').textContent = `Orden #${order.id}`;
     document.getElementById('order-detail-content').innerHTML = `
         <div class="order-detail-section">
@@ -1417,28 +1829,43 @@ function closeOrderModal() {
 }
 
 // ========== USUARIOS ADMIN ==========
-function renderUsersTable() {
+async function renderUsersTable() {
     const tbody = document.getElementById('users-table-body');
     if (!tbody) return;
     updateAdminCounters();
-    
+
+    try {
+        const params = new URLSearchParams();
+        const buscar = document.getElementById('users-search')?.value.trim() || '';
+        const rol = document.getElementById('users-filter-role')?.value || '';
+        if (buscar) params.set('buscar', buscar);
+        if (rol) params.set('rol', rol);
+        const datos = await apiFetch('/api/admin/usuarios?' + params.toString());
+        registeredUsers = (Array.isArray(datos) ? datos : []).map(normalizarUsuario);
+    } catch (e) {
+        tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;padding:40px;color:#888;">No se pudieron cargar los usuarios. Revisa que el servidor esté prendido.</td></tr>';
+        return;
+    }
+
     const searchTerm = document.getElementById('users-search')?.value.toLowerCase().trim() || '';
     const roleFilter = document.getElementById('users-filter-role')?.value || '';
-    
-    let filtered = registeredUsers.filter(u => 
+
+    let filtered = registeredUsers.filter(u =>
         u.name.toLowerCase().includes(searchTerm) ||
         u.email.toLowerCase().includes(searchTerm));
     if (roleFilter) filtered = filtered.filter(u => u.role === roleFilter);
-    
+
     if (filtered.length === 0) {
         tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;padding:40px;color:#888;">No hay usuarios que coincidan.</td></tr>';
         return;
     }
-    
+
     tbody.innerHTML = filtered.map(u => {
         const initial = u.name.charAt(0).toUpperCase();
         const avatarClass = u.role === 'admin' ? 'user-avatar-sm' : 'user-avatar-sm cliente';
-        const userOrders = orders.filter(o => o.userEmail === u.email || o.userId === u.id).length;
+        const userOrders = (u.total_ordenes !== undefined && u.total_ordenes !== null)
+            ? u.total_ordenes
+            : orders.filter(o => o.userEmail === u.email || o.userId === u.id).length;
         return `
             <tr>
                 <td>
@@ -1455,8 +1882,8 @@ function renderUsersTable() {
                 <td>${u.registeredAt || 'N/A'}</td>
                 <td><strong style="color:#0056B3;">${userOrders}</strong></td>
                 <td>
-                    ${u.id === currentUser.id 
-                        ? '<small style="color:#888;font-style:italic;">Tú</small>' 
+                    ${u.id === currentUser.id
+                        ? '<small style="color:#888;font-style:italic;">Tú</small>'
                         : `<div class="action-btns">
                             <button class="btn-icon" onclick="toggleUserRole(${u.id})" title="Cambiar rol">🔄</button>
                             <button class="btn-icon danger" onclick="deleteUser(${u.id})" title="Eliminar">🗑️</button>
@@ -1467,36 +1894,52 @@ function renderUsersTable() {
     }).join('');
 }
 
-function toggleUserRole(userId) {
+async function toggleUserRole(userId) {
     const user = registeredUsers.find(u => u.id === userId);
     if (!user) return;
     const newRole = user.role === 'admin' ? 'cliente' : 'admin';
     if (!confirm(`¿Cambiar a ${user.name} al rol "${newRole}"?`)) return;
-    user.role = newRole;
-    saveToStorage('coredesk_users', registeredUsers);
+    try {
+        await apiFetch('/api/admin/usuarios/' + userId + '/rol', {
+            method: 'PUT',
+            body: JSON.stringify({ rol: newRole })
+        });
+    } catch (e) {
+        mostrarError(e);
+        return;
+    }
     renderUsersTable();
     alert('✅ Rol actualizado.');
 }
 
-function deleteUser(userId) {
+async function deleteUser(userId) {
     if (userId === currentUser.id) return alert('No puedes eliminarte a ti mismo.');
     if (!confirm('¿Eliminar este usuario?')) return;
-    registeredUsers = registeredUsers.filter(u => u.id !== userId);
-    saveToStorage('coredesk_users', registeredUsers);
+    try {
+        await apiFetch('/api/admin/usuarios/' + userId, { method: 'DELETE' });
+    } catch (e) {
+        mostrarError(e);
+        return;
+    }
     renderUsersTable();
     renderAdminDashboard();
     alert('🗑️ Usuario eliminado.');
 }
 
 // ========== IMAGEN ==========
+// La base de datos solo guarda URLs (máximo 500 caracteres): una imagen
+// subida como archivo se convierte en data-URI de miles de caracteres y no
+// cabe en imagen_url, así que solo se guardan URLs. Si el admin sube un
+// archivo, se le avisa al guardar y el producto queda con la imagen genérica.
 function handleImageUpload(event) {
     const file = event.target.files[0];
     if (!file) return;
     if (file.size > 2 * 1024 * 1024) return alert('⚠️ La imagen debe ser menor a 2MB.');
-    
+
     const reader = new FileReader();
     reader.onload = (e) => {
         currentImageData = e.target.result;
+        imagenEsArchivoSubido = true;
         document.getElementById('image-preview').innerHTML = `<img src="${currentImageData}" alt="Preview">`;
         document.getElementById('form-image-url').value = '';
     };
@@ -1505,11 +1948,13 @@ function handleImageUpload(event) {
 function handleImageUrl(url) {
     if (!url) return;
     currentImageData = url;
+    imagenEsArchivoSubido = false;
     const preview = document.getElementById('image-preview');
-    preview.innerHTML = `<img src="${url}" alt="Preview" onerror="this.parentElement.innerHTML='<span style=\\'color:#dc3545;font-size:0.8rem;\\'>URL inválida</span>'">`;
+    preview.innerHTML = `<img src="${url}" alt="Preview" onerror="this.parentElement.innerHTML='<span style=\'color:#dc3545;font-size:0.8rem;\'>URL inválida</span>'">`;
 }
 function clearImage() {
     currentImageData = null;
+    imagenEsArchivoSubido = false;
     document.getElementById('image-preview').innerHTML = '<span style="color:#999;font-size:0.85rem;">Sin imagen</span>';
     document.getElementById('form-image-file').value = '';
     document.getElementById('form-image-url').value = '';
@@ -1542,11 +1987,17 @@ function openAddProductModal() {
     document.getElementById('product-modal').classList.add('open');
 }
 
-function openEditProductModal(productId) {
+async function openEditProductModal(productId) {
     if (!currentUser || currentUser.role !== 'admin') return;
-    const product = products.find(p => p.id === productId);
-    if (!product) return;
-    
+    let product = products.find(p => p.id === productId);
+    // El detalle trae las especificaciones reales de la base de datos.
+    try {
+        const detalle = await apiFetch('/api/productos/' + productId);
+        product = normalizarProducto(detalle);
+    } catch (e) {
+        if (!product) { mostrarError(e); return; }
+    }
+
     editingProductId = productId;
     document.getElementById('product-modal-title').textContent = 'Editar Producto';
     document.getElementById('product-id').value = product.id;
@@ -1559,62 +2010,78 @@ function openEditProductModal(productId) {
     document.getElementById('form-isnew').checked = product.isNew || false;
     document.getElementById('form-isoffer').checked = product.isOffer || false;
     document.getElementById('form-discount').value = product.discount || 15;
-    
+
     document.getElementById('discount-field').style.display = product.isOffer ? 'block' : 'none';
     updateDiscountPreview();
-    
+
     const specsText = Object.entries(product.specs).map(([k, v]) => `${k}:${v}`).join('\n');
     document.getElementById('form-specs').value = specsText;
-    
-    currentImageData = product.image;
+
+    // Solo se muestra la URL real si el producto tiene una; el SVG de
+    // respaldo no es una URL y no se manda de vuelta a la API.
+    currentImageData = product.imagen_url || null;
+    imagenEsArchivoSubido = false;
+    document.getElementById('form-image-url').value = product.imagen_url || '';
     document.getElementById('image-preview').innerHTML = `<img src="${product.image}" alt="Preview">`;
-    
+
     document.getElementById('product-modal').classList.add('open');
 }
 
-function saveProduct(event) {
+async function saveProduct(event) {
     event.preventDefault();
     if (!currentUser || currentUser.role !== 'admin') return;
-    
+
     const specsText = document.getElementById('form-specs').value.trim();
-    let specs = {};
-    if (specsText) {
-        specsText.split('\n').forEach(line => {
-            const [key, ...rest] = line.split(':');
-            if (key && rest.length) specs[key.trim()] = rest.join(':').trim();
-        });
-    }
-    if (Object.keys(specs).length === 0) specs = { General: "Consultar" };
-    
-    const image = currentImageData || "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='200' height='150'%3E%3Crect width='200' height='150' fill='%23e8eef5'/%3E%3Ctext x='50%25' y='50%25' text-anchor='middle' dy='.3em' font-size='60'%3E📦%3C/text%3E%3C/svg%3E";
-    
+
     const isOffer = document.getElementById('form-isoffer').checked;
     const discount = isOffer ? (parseInt(document.getElementById('form-discount').value) || 15) : 0;
-    
-    const productData = {
-        name: document.getElementById('form-name').value,
-        category: document.getElementById('form-category').value,
-        price: parseFloat(document.getElementById('form-price').value),
-        stock: parseInt(document.getElementById('form-stock').value),
-        brand: document.getElementById('form-brand').value,
-        shortDesc: document.getElementById('form-shortdesc').value,
-        image, specs,
-        isNew: document.getElementById('form-isnew').checked,
-        isOffer, discount
-    };
-    
-    if (editingProductId) {
-        const index = products.findIndex(p => p.id === editingProductId);
-        if (index !== -1) products[index] = { ...products[index], ...productData };
-        alert('✅ Producto actualizado.');
-    } else {
-        const newId = Math.max(...products.map(p => p.id), 0) + 1;
-        products.push({ id: newId, ...productData, rating: 4.5, reviews: 0, sold: 0 });
-        alert('✅ Producto agregado.');
+
+    // Imagen: solo URLs. Un archivo subido (data-URI) no cabe en imagen_url
+    // (500 caracteres) y se descarta avisando al admin.
+    const urlImagen = (document.getElementById('form-image-url').value || '').trim();
+    let imagenUrl = null;
+    if (urlImagen) {
+        imagenUrl = urlImagen;
+    } else if (currentImageData && currentImageData.startsWith('http')) {
+        imagenUrl = currentImageData;
+    } else if (imagenEsArchivoSubido) {
+        alert('Nota: la imagen subida como archivo no se puede guardar en la base de datos (solo se guardan URLs). El producto se guardará con la imagen genérica.');
     }
-    
-    saveToStorage('coredesk_products', products);
+
+    const productData = {
+        nombre: document.getElementById('form-name').value,
+        categoria: document.getElementById('form-category').value,
+        precio: parseFloat(document.getElementById('form-price').value),
+        stock: parseInt(document.getElementById('form-stock').value),
+        marca: document.getElementById('form-brand').value,
+        descripcion_breve: document.getElementById('form-shortdesc').value,
+        imagen_url: imagenUrl,
+        especificaciones: specsText,
+        es_nuevo: document.getElementById('form-isnew').checked,
+        oferta: { activa: isOffer, porcentaje_descuento: discount }
+    };
+
+    try {
+        if (editingProductId) {
+            await apiFetch('/api/productos/' + editingProductId, {
+                method: 'PUT',
+                body: JSON.stringify(productData)
+            });
+            alert('✅ Producto actualizado.');
+        } else {
+            await apiFetch('/api/productos', {
+                method: 'POST',
+                body: JSON.stringify(productData)
+            });
+            alert('✅ Producto agregado.');
+        }
+    } catch (e) {
+        mostrarError(e);
+        return;
+    }
+
     closeProductModal();
+    await cargarProductos();
     renderAdminTable();
     renderAdminDashboard();
     renderFeaturedProducts();
@@ -1626,11 +2093,17 @@ function saveProduct(event) {
     }
 }
 
-function deleteProduct(productId) {
+async function deleteProduct(productId) {
     if (!currentUser || currentUser.role !== 'admin') return;
     if (!confirm('¿Eliminar este producto?')) return;
-    products = products.filter(p => p.id !== productId);
-    saveToStorage('coredesk_products', products);
+    try {
+        await apiFetch('/api/productos/' + productId, { method: 'DELETE' });
+    } catch (e) {
+        // 409: el producto ya tiene órdenes y la llave foránea lo protege.
+        mostrarError(e);
+        return;
+    }
+    await cargarProductos();
     renderAdminTable();
     renderAdminDashboard();
     renderFeaturedProducts();
@@ -1644,16 +2117,21 @@ function closeProductModal() {
 }
 
 // ========== MI PERFIL ==========
-function switchProfileTab(tab) {
+function switchProfileTab(tab, event) {
     document.querySelectorAll('.profile-tab').forEach(t => t.classList.remove('active'));
-    event.target.classList.add('active');
+    // El prototipo usaba el "event" global del onclick; aquí se acepta el
+    // evento como parámetro y, si no viene, se busca la pestaña por su texto.
+    const target = (event && event.target)
+        || (typeof window !== 'undefined' && window.event && window.event.target)
+        || document.querySelector(`.profile-tab[onclick*="'${tab}'"]`);
+    if (target) target.classList.add('active');
     renderProfile(tab);
 }
 
-function renderProfile(tab) {
+async function renderProfile(tab) {
     const container = document.getElementById('profile-content');
     if (!container || !currentUser) return;
-    
+
     if (tab === 'datos') {
         container.innerHTML = `
             <h3>📝 Mis Datos</h3>
@@ -1664,7 +2142,17 @@ function renderProfile(tab) {
         `;
     }
     else if (tab === 'pedidos') {
-        const myOrders = orders.filter(o => o.userId === currentUser.id || o.userEmail === currentUser.email);
+        let myOrders = [];
+        try {
+            const datos = await apiFetch('/api/ordenes/mis');
+            myOrders = (Array.isArray(datos) ? datos : []).map(normalizarOrden);
+        } catch (e) {
+            container.innerHTML = `
+                <h3>📦 Mis Pedidos</h3>
+                <p style="color:#888;">No se pudieron cargar tus pedidos. Revisa que el servidor esté prendido.</p>
+            `;
+            return;
+        }
         if (myOrders.length === 0) {
             container.innerHTML = `
                 <h3>📦 Mis Pedidos</h3>
@@ -1698,7 +2186,23 @@ function renderProfile(tab) {
         }
     }
     else if (tab === 'resenas') {
-        const myReviews = reviews.filter(r => r.userId === currentUser.id);
+        let myReviews = [];
+        try {
+            const datos = await apiFetch('/api/resenas/mis');
+            myReviews = (Array.isArray(datos) ? datos : []).map((r) => ({
+                productId: r.id_producto,
+                productName: r.producto,
+                rating: r.calificacion,
+                comment: r.comentario,
+                date: r.fecha ? String(r.fecha).slice(0, 10) : ''
+            }));
+        } catch (e) {
+            container.innerHTML = `
+                <h3>⭐ Mis Reseñas</h3>
+                <p style="color:#888;">No se pudieron cargar tus reseñas. Revisa que el servidor esté prendido.</p>
+            `;
+            return;
+        }
         if (myReviews.length === 0) {
             container.innerHTML = `
                 <h3>⭐ Mis Reseñas</h3>
@@ -1712,10 +2216,11 @@ function renderProfile(tab) {
                 <h3>⭐ Mis Reseñas (${myReviews.length})</h3>
                 ${myReviews.map(r => {
                     const product = products.find(p => p.id === r.productId);
+                    const nombre = r.productName || product?.name || 'Producto eliminado';
                     return `
                         <div style="border:1px solid #E0E0E0;border-radius:8px;padding:15px;margin-bottom:12px;">
                             <div class="stars">${'★'.repeat(r.rating)}${'☆'.repeat(5-r.rating)}</div>
-                            <strong style="font-size:0.9rem;">${product?.name || 'Producto eliminado'}</strong>
+                            <strong style="font-size:0.9rem;">${nombre}</strong>
                             <p style="font-size:0.85rem;margin-top:5px;color:#444;">${r.comment}</p>
                             <small style="color:#888;font-size:0.75rem;">Publicada: ${r.date}</small>
                         </div>
@@ -1745,21 +2250,22 @@ function renderProfile(tab) {
     }
 }
 
-function changePassword() {
+async function changePassword() {
     const current = document.getElementById('current-pass').value;
     const newPass = document.getElementById('new-pass').value;
     const confirm = document.getElementById('confirm-pass').value;
-    
-    if (current !== currentUser.password) return alert('❌ Contraseña actual incorrecta.');
+
     if (newPass.length < 6) return alert('❌ Mínimo 6 caracteres.');
     if (newPass !== confirm) return alert('❌ Las contraseñas no coinciden.');
-    
-    const userInDb = registeredUsers.find(u => u.id === currentUser.id);
-    if (userInDb) {
-        userInDb.password = newPass;
-        currentUser.password = newPass;
-        saveToStorage('coredesk_users', registeredUsers);
-        saveToStorage('coredesk_currentUser', currentUser);
+
+    try {
+        await apiFetch('/api/auth/cambiar-password', {
+            method: 'POST',
+            body: JSON.stringify({ actual: current, nueva: newPass, confirmacion: confirm })
+        });
+    } catch (e) {
+        mostrarError(e);
+        return;
     }
     alert('✅ Contraseña actualizada.');
     renderProfile('seguridad');
