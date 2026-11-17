@@ -2992,6 +2992,7 @@ function iniciarInterfazV4() {
     });
 
     observarReveal();
+    iniciarTiltTarjetas();
 }
 
 // Aparición suave de las secciones marcadas con la clase "reveal".
@@ -3143,4 +3144,69 @@ function imagenCarrito(item) {
     const producto = products.find((p) => p.id === Number(item.id_producto));
     if (producto) return producto.image;
     return imagenDeProducto(item.id_producto, item.imagen_url, item.categoria);
+}
+
+// ============================================================================
+// v4.1 — Inclinación 3D de las tarjetas de producto
+// Al mover el cursor sobre una tarjeta, esta se inclina hacia el cursor, la
+// imagen se desplaza un poco (efecto de profundidad) y un brillo sigue al
+// puntero. Solo se activa con mouse (no en pantallas táctiles) y se apaga si
+// el sistema pide reducir animaciones.
+// ============================================================================
+const TILT_MAX_GRADOS = 10;   // inclinación máxima
+const TILT_PARALLAX_PX = 10;  // cuánto se mueve la imagen
+
+function iniciarTiltTarjetas() {
+    const conMouse = window.matchMedia && window.matchMedia('(hover: hover) and (pointer: fine)').matches;
+    const menosMovimiento = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    if (!conMouse || menosMovimiento) return;
+
+    let tarjetaActiva = null;
+    let ultimoEvento = null;
+    let pendiente = false;
+
+    const aplicar = () => {
+        pendiente = false;
+        if (!tarjetaActiva || !ultimoEvento) return;
+        const r = tarjetaActiva.getBoundingClientRect();
+        // Posición del cursor dentro de la tarjeta, de 0 a 1.
+        const x = Math.min(1, Math.max(0, (ultimoEvento.clientX - r.left) / r.width));
+        const y = Math.min(1, Math.max(0, (ultimoEvento.clientY - r.top) / r.height));
+        // Centro = 0; orillas = -0.5 / 0.5.
+        const dx = x - 0.5;
+        const dy = y - 0.5;
+        const s = tarjetaActiva.style;
+        s.setProperty('--rx', (-dy * 2 * TILT_MAX_GRADOS).toFixed(2) + 'deg');
+        s.setProperty('--ry', (dx * 2 * TILT_MAX_GRADOS).toFixed(2) + 'deg');
+        s.setProperty('--mx', (x * 100).toFixed(1) + '%');
+        s.setProperty('--my', (y * 100).toFixed(1) + '%');
+        s.setProperty('--px', (-dx * 2 * TILT_PARALLAX_PX).toFixed(1) + 'px');
+        s.setProperty('--py', (-dy * 2 * TILT_PARALLAX_PX).toFixed(1) + 'px');
+        // La sombra cae del lado contrario a la inclinación.
+        s.setProperty('--sx', (-dx * 30).toFixed(1) + 'px');
+        s.setProperty('--sy', (18 - dy * 20).toFixed(1) + 'px');
+    };
+
+    const soltar = (tarjeta) => {
+        if (!tarjeta) return;
+        tarjeta.classList.remove('tilt-activo');
+        ['--rx', '--ry', '--mx', '--my', '--px', '--py', '--sx', '--sy'].forEach((v) => tarjeta.style.removeProperty(v));
+    };
+
+    document.addEventListener('pointermove', (e) => {
+        if (e.pointerType && e.pointerType !== 'mouse') return;
+        const tarjeta = e.target.closest ? e.target.closest('.product-card:not(.skeleton-card)') : null;
+        if (tarjeta !== tarjetaActiva) {
+            soltar(tarjetaActiva);
+            tarjetaActiva = tarjeta;
+            if (tarjeta) tarjeta.classList.add('tilt-activo');
+        }
+        if (!tarjeta) return;
+        ultimoEvento = e;
+        if (!pendiente) { pendiente = true; requestAnimationFrame(aplicar); }
+    }, { passive: true });
+
+    // Cuando el cursor sale de la ventana o se hace scroll, la tarjeta regresa a su lugar.
+    document.addEventListener('pointerleave', () => { soltar(tarjetaActiva); tarjetaActiva = null; });
+    window.addEventListener('blur', () => { soltar(tarjetaActiva); tarjetaActiva = null; });
 }

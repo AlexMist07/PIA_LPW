@@ -4221,3 +4221,55 @@ footer { margin-top: 0; }
     .qty-stepper button { width: 36px; }
     .qty-stepper input { width: 40px !important; }
 }
+
+/* ================================================================
+   v4.1 — Inclinación 3D de las tarjetas (las variables las pone app.js)
+   ================================================================ */
+/* La animación de entrada ya no "congela" la posición final, así la
+   tarjeta puede moverse al pasar el cursor. */
+.card-enter { animation-fill-mode: backwards; }
+
+.product-card {
+    --rx: 0deg; --ry: 0deg; --mx: 50%; --my: 50%;
+    --px: 0px; --py: 0px; --sx: 0px; --sy: 18px;
+    transform-origin: center;
+    will-change: transform;
+    transition: transform .45s var(--v4-ease), box-shadow .45s ease, border-color .25s ease;
+}
+.product-card.tilt-activo {
+    transform: perspective(900px) rotateX(var(--rx)) rotateY(var(--ry)) translateY(-6px) scale(1.02);
+    box-shadow: var(--sx) var(--sy) 38px rgba(11, 37, 69, 0.22), 0 2px 6px rgba(11, 37, 69, 0.08);
+    border-color: #cfe0ff;
+    transition: transform .12s ease-out, box-shadow .12s ease-out, border-color .25s ease;
+    z-index: 2;
+}
+/* Profundidad: la imagen se mueve al lado contrario del cursor y las
+   insignias un poco hacia el mismo lado, como si estuvieran más cerca. */
+.product-card .product-image img { transition: transform .45s var(--v4-ease); }
+.product-card.tilt-activo .product-image img {
+    transform: translate(var(--px), var(--py)) scale(1.1);
+    transition: transform .12s ease-out;
+}
+.product-card .product-badges, .product-card .discount-badge { transition: transform .45s var(--v4-ease); }
+.product-card.tilt-activo .product-badges,
+.product-card.tilt-activo .discount-badge {
+    transform: translate(calc(var(--px) * -0.6), calc(var(--py) * -0.6));
+    transition: transform .12s ease-out;
+}
+/* Brillo que sigue al cursor */
+.product-card::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    background: radial-gradient(circle at var(--mx) var(--my), rgba(255, 255, 255, 0.35), rgba(255, 255, 255, 0) 55%);
+    opacity: 0;
+    transition: opacity .3s ease;
+    pointer-events: none;
+    z-index: 3;
+}
+.product-card.tilt-activo::after { opacity: 1; }
+.product-card.is-agotado.tilt-activo { transform: perspective(900px) rotateX(calc(var(--rx) * .5)) rotateY(calc(var(--ry) * .5)); }
+@media (hover: none), (prefers-reduced-motion: reduce) {
+    .product-card.tilt-activo { transform: none; }
+}
