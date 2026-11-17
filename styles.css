@@ -260,6 +260,16 @@ button {
     font-size: 1.5rem;
     cursor: pointer;
     transition: transform 0.2s;
+    color: #ffffff;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.cart-icon .cart-svg {
+    width: 22px;
+    height: 22px;
+    flex-shrink: 0;
 }
 
 .cart-icon:hover {
@@ -2068,6 +2078,7 @@ footer {
         width: 100%;
         height: 180px;
     }
+}
     /* ============================================================
    ESTILOS AGREGADOS - Ofertas, Destacados, Historial con Fechas
    (Agregar al final del archivo existente)
@@ -2106,15 +2117,21 @@ footer {
 
 .product-price-original {
     text-decoration: line-through;
-    color: #999;
-    font-size: 0.9rem;
-    font-weight: 500;
+    color: #dc3545;
+    font-size: 0.85rem;
+    font-weight: 600;
 }
 
 .product-price-new {
-    font-size: 1.35rem;
+    font-size: 1.5rem;
     font-weight: 800;
-    color: #dc3545;
+    color: #28a745;
+}
+
+.price-label {
+    font-size: 0.8rem;
+    font-weight: 700;
+    color: #666;
 }
 
 .discount-badge {
@@ -2740,4 +2757,442 @@ footer {
         font-size: 0.6rem;
     }
 }
+
+/* ========== PÁGINAS DE INFORMACIÓN (Nosotros / Contacto) ========== */
+.info-page {
+    max-width: 800px;
+    margin: 0 auto;
 }
+.info-page p {
+    line-height: 1.6;
+    color: #333;
+    margin-bottom: 12px;
+}
+.info-page h3 {
+    margin: 24px 0 10px;
+}
+.info-page ul {
+    margin: 0 0 12px 20px;
+    line-height: 1.6;
+}
+
+/* ================================================================
+   COREDESK TECH — REDISEÑO v3 (Fase 3)
+   Sistema visual nuevo sobre el CSS propio del proyecto.
+   Bootstrap 5 solo aporta utilidades/componentes (modal, toasts);
+   todo el aspecto de la tienda se define aquí.
+   Paleta: azul oscuro #0B2545 / #0A1F33, acento #0056B3, verde #28a745.
+   ================================================================ */
+
+body {
+    background-color: #f4f6fb;
+}
+#main-content {
+    padding-top: 28px;
+    padding-bottom: 48px;
+}
+.section-title {
+    font-size: 1.7rem;
+    font-weight: 800;
+    color: #0B2545;
+    margin: 8px 0 20px;
+    letter-spacing: -0.5px;
+}
+.view {
+    animation: v3-fadein 0.25s ease-in;
+}
+@keyframes v3-fadein {
+    from { opacity: 0; transform: translateY(6px); }
+    to { opacity: 1; transform: none; }
+}
+
+/* --- Header v3: azul oscuro, limpio --- */
+#main-header {
+    background: linear-gradient(180deg, #0B2545 0%, #0A1F33 100%);
+    box-shadow: 0 4px 18px rgba(0, 0, 0, 0.25);
+}
+.header-top { border-bottom: 1px solid rgba(255, 255, 255, 0.12); }
+.logo a { color: #fff; }
+.logo-core { color: #fff; }
+.logo-desk { color: #4da3ff; }
+.logo-tech { color: #9ec5ff; font-weight: 300; }
+.slogan { color: #b8cce4; }
+.search-bar input {
+    border: 1px solid rgba(255, 255, 255, 0.25);
+    background: rgba(255, 255, 255, 0.10);
+    color: #fff;
+    border-radius: 999px;
+}
+.search-bar input::placeholder { color: #b8cce4; }
+.search-btn { background: #0056B3; border-radius: 999px; }
+.main-nav { background: transparent; }
+.nav-menu a {
+    color: #cfe0f5;
+    font-weight: 600;
+    padding: 10px 14px;
+    border-radius: 8px;
+}
+.nav-menu a:hover, .nav-menu a.active {
+    background: rgba(255, 255, 255, 0.12);
+    color: #fff;
+}
+.user-menu-btn { color: #fff; }
+.login-btn {
+    background: #0056B3;
+    border-radius: 999px;
+    padding: 9px 18px;
+    font-weight: 700;
+}
+.cart-badge.badge-pop {
+    animation: v3-pop 0.3s ease;
+}
+@keyframes v3-pop {
+    0% { transform: scale(1); }
+    50% { transform: scale(1.35); }
+    100% { transform: scale(1); }
+}
+
+/* --- Hero v3 --- */
+.banner-main.hero-v3, .hero-v3 {
+    background: linear-gradient(120deg, #0B2545 0%, #0056B3 70%, #007BFF 100%);
+    border-radius: 20px;
+    color: #fff;
+    box-shadow: 0 12px 32px rgba(11, 37, 69, 0.35);
+    padding: 36px 40px;
+}
+.hero-v3 h1 { color: #fff; }
+.hero-v3 p { color: #d6e6ff; }
+.hero-v3 .btn-primary {
+    background: #fff;
+    color: #0B2545;
+    border-radius: 999px;
+    padding: 12px 24px;
+    font-weight: 800;
+    border: none;
+}
+.hero-v3 .btn-secondary {
+    background: transparent;
+    color: #fff;
+    border: 2px solid rgba(255, 255, 255, 0.6);
+    border-radius: 999px;
+    padding: 10px 22px;
+    font-weight: 700;
+}
+.hero-badges {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-top: 18px;
+}
+.hero-badge {
+    background: rgba(255, 255, 255, 0.14);
+    border: 1px solid rgba(255, 255, 255, 0.25);
+    color: #fff;
+    font-size: 0.8rem;
+    font-weight: 600;
+    padding: 6px 12px;
+    border-radius: 999px;
+}
+
+/* --- Botones v3 --- */
+.btn-primary {
+    background: linear-gradient(180deg, #007BFF, #0056B3);
+    border: none;
+    border-radius: 10px;
+    font-weight: 700;
+    box-shadow: 0 4px 12px rgba(0, 86, 179, 0.30);
+}
+.btn-primary:hover { filter: brightness(1.08); }
+.btn-secondary {
+    background: #e9eef5;
+    color: #0B2545;
+    border: 1px solid #d5dee9;
+    border-radius: 10px;
+    font-weight: 700;
+    padding: 10px 18px;
+}
+
+/* --- Tarjetas de producto v3 --- */
+.product-card {
+    border: 1px solid #e6ebf2;
+    border-radius: 18px;
+    box-shadow: 0 4px 16px rgba(11, 37, 69, 0.08);
+    padding: 18px;
+    background: #fff;
+    transition: transform 0.18s ease, box-shadow 0.18s ease;
+    display: flex;
+    flex-direction: column;
+}
+.product-card:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 12px 28px rgba(11, 37, 69, 0.16);
+}
+.product-card .product-image {
+    background: #f4f6fb;
+    border-radius: 12px;
+}
+.product-card .product-name { color: #0B2545; font-weight: 700; }
+.btn-add-cart {
+    border-radius: 10px;
+    font-weight: 700;
+    margin-top: auto;
+    padding: 11px;
+}
+.btn-add-cart:disabled {
+    background: #cbd5e1 !important;
+    color: #64748b !important;
+    cursor: not-allowed;
+    box-shadow: none;
+}
+.product-badge.envio { background: #0B2545; }
+.product-badge.oferta { background: #dc3545; }
+.product-badge.nuevo { background: #28a745; }
+.discount-badge { box-shadow: 0 2px 8px rgba(220, 53, 69, 0.4); }
+
+/* --- Paneles, filtros y detalle v3 --- */
+.filters-panel, .info-page, .dashboard-card, .chart-card, .table-container,
+.modal-cart, .modal-form, .profile-content {
+    background: #fff;
+    border: 1px solid #e6ebf2;
+    border-radius: 16px;
+    box-shadow: 0 4px 16px rgba(11, 37, 69, 0.06);
+}
+.detail-container {
+    background: #fff;
+    border: 1px solid #e6ebf2;
+    border-radius: 18px;
+    box-shadow: 0 8px 24px rgba(11, 37, 69, 0.08);
+    padding: 24px;
+}
+input, select, textarea {
+    border-radius: 10px !important;
+}
+input:focus, select:focus, textarea:focus {
+    border-color: #0056B3 !important;
+    box-shadow: 0 0 0 3px rgba(0, 86, 179, 0.15) !important;
+    outline: none;
+}
+
+/* --- Admin v3 --- */
+.stat-card {
+    border-radius: 18px;
+    box-shadow: 0 6px 20px rgba(11, 37, 69, 0.10);
+    border: 1px solid #e6ebf2;
+}
+.stat-card.stat-danger::before { background: linear-gradient(90deg, #dc3545, #ff6b6b); }
+.stat-value { color: #0B2545; }
+.data-table {
+    border-radius: 12px;
+    overflow: hidden;
+}
+.data-table thead th {
+    background: #0B2545;
+    color: #fff;
+    font-size: 0.8rem;
+    text-transform: uppercase;
+    letter-spacing: 0.4px;
+}
+.data-table tbody tr:hover { background: #f0f5ff; }
+.fila-venta { cursor: pointer; }
+.stock-indicator.high { background: #e8f5e9; color: #1b7a2e; font-weight: 700; }
+.stock-indicator.medium { background: #fff3cd; color: #856404; font-weight: 700; }
+.stock-indicator.low { background: #f8d7da; color: #721c24; font-weight: 700; }
+.status-badge { border-radius: 999px; padding: 4px 12px; font-weight: 700; font-size: 0.78rem; }
+.status-pagada { background: #d4edda; color: #155724; }
+.status-enviada { background: #cce5ff; color: #004085; }
+.status-entregada { background: #d1ecf1; color: #0c5460; }
+.status-cancelada { background: #f8d7da; color: #721c24; }
+.status-pendiente { background: #fff3cd; color: #856404; }
+.period-stat, .admin-toolbar {
+    background: #fff;
+    border: 1px solid #e6ebf2;
+    border-radius: 14px;
+    box-shadow: 0 4px 14px rgba(11, 37, 69, 0.06);
+}
+.admin-nav-item.active {
+    background: linear-gradient(90deg, #0056B3, #007BFF);
+    color: #fff;
+    border-radius: 10px;
+}
+
+/* --- Checkout v3 --- */
+.checkout-container { max-width: 860px; }
+.checkout-steps {
+    display: flex;
+    gap: 8px;
+    margin: 8px 0 24px;
+    flex-wrap: wrap;
+}
+.checkout-step {
+    flex: 1;
+    min-width: 120px;
+    text-align: center;
+    padding: 10px 6px;
+    border-radius: 999px;
+    background: #e9eef5;
+    color: #64748b;
+    font-weight: 700;
+    font-size: 0.85rem;
+}
+.checkout-step.active { background: #0056B3; color: #fff; }
+.checkout-step.done { background: #28a745; color: #fff; }
+.checkout-step-num {
+    display: inline-block;
+    background: rgba(255, 255, 255, 0.25);
+    border-radius: 50%;
+    width: 22px;
+    height: 22px;
+    line-height: 22px;
+    margin-right: 6px;
+    font-size: 0.8rem;
+}
+.checkout-panel {
+    background: #fff;
+    border: 1px solid #e6ebf2;
+    border-radius: 18px;
+    box-shadow: 0 6px 20px rgba(11, 37, 69, 0.08);
+    padding: 24px;
+}
+.checkout-panel h3 { color: #0B2545; margin-bottom: 16px; }
+.checkout-actions {
+    display: flex;
+    justify-content: space-between;
+    gap: 12px;
+    margin-top: 20px;
+    flex-wrap: wrap;
+}
+.checkout-error {
+    background: #f8d7da;
+    color: #721c24;
+    border: 1px solid #f5c6cb;
+    border-radius: 10px;
+    padding: 10px 14px;
+    margin-top: 14px;
+    font-weight: 600;
+}
+.checkout-note {
+    background: #e7f1ff;
+    border-left: 4px solid #0056B3;
+    border-radius: 8px;
+    padding: 12px 14px;
+    margin-bottom: 16px;
+    color: #0B2545;
+}
+.form-row {
+    display: flex;
+    gap: 14px;
+    flex-wrap: wrap;
+}
+.form-row .form-group { flex: 1; min-width: 160px; }
+.checkout-exito { text-align: center; }
+.checkout-orden-numero {
+    font-size: 2rem;
+    font-weight: 800;
+    color: #0056B3;
+    margin: 8px 0;
+}
+.checkout-resumen-bloque {
+    background: #f8fafc;
+    border: 1px solid #e6ebf2;
+    border-radius: 12px;
+    padding: 14px 16px;
+    margin-bottom: 14px;
+}
+.checkout-resumen-bloque h4 { color: #0B2545; margin-bottom: 8px; }
+
+/* --- Bootstrap convive con los modales propios --- */
+.modal-overlay { z-index: 1040; }
+#confirm-modal { z-index: 1060; }
+#toast-container { z-index: 1070; }
+.toast {
+    border-radius: 12px;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.2);
+}
+
+/* --- Footer v3 --- */
+footer, .site-footer {
+    background: #0B2545;
+    color: #cfe0f5;
+}
+footer a, .site-footer a { color: #9ec5ff; }
+
+/* --- Responsive v3 --- */
+@media (max-width: 768px) {
+    .hero-v3 { padding: 24px 20px; }
+    .checkout-step { font-size: 0.75rem; min-width: 0; }
+    .section-title { font-size: 1.35rem; }
+}
+
+/* ================================================================
+   COREDESK TECH — PARCHE v3.1 (Fase 3)
+   1) Precios con descuento: vieja ROJA tachada, nueva VERDE, en tarjeta
+      y en detalle. Las reglas v2/v3 de .product-price-original y
+      .product-price-new vivían dentro de un @media (max-width:768px)
+      sin cerrar y en escritorio nunca se aplicaban; aquí van además
+      con más especificidad para que Bootstrap no las tape.
+   2) Admin a ancho completo + tablas con scroll horizontal.
+   3) Botón de usuario legible sobre el encabezado oscuro.
+   4) Hero y galería.
+   ================================================================ */
+.product-card .product-price-original,
+.detail-info .product-price-original {
+    color: #dc3545;
+    text-decoration: line-through;
+    font-size: 0.85rem;
+    font-weight: 600;
+}
+.product-card .product-price-new,
+.detail-info .product-price-new {
+    color: #28a745;
+    font-size: 1.5rem;
+    font-weight: 800;
+}
+.product-card .price-label,
+.detail-info .price-label {
+    color: #555;
+    font-weight: 700;
+}
+/* Admin: ancho completo (Bootstrap limita .container a 1140px; con dos
+   clases la especificidad gana) y tablas siempre visibles. */
+.container.admin-layout { max-width: 1400px; width: 100%; }
+.admin-content { min-width: 0; }
+.stats-grid { grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); }
+.period-summary { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 14px; margin-bottom: 20px; }
+.table-container { overflow-x: auto; }
+.data-table { min-width: 780px; }
+/* Usuario: la v3 puso el texto en blanco pero el fondo seguía gris claro
+   (color:#fff sobre fondo claro = invisible). Fondo oscuro translúcido. */
+.user-menu-btn { background: rgba(255, 255, 255, 0.14); border: 1px solid rgba(255, 255, 255, 0.35); color: #fff; }
+.user-menu-btn:hover { border-color: rgba(255, 255, 255, 0.7); }
+.login-btn { color: #fff; border-color: rgba(255, 255, 255, 0.45); }
+.login-btn:hover { color: #fff; border-color: #fff; }
+/* Buscador: botón ✕ para limpiar la búsqueda. */
+.search-bar { position: relative; }
+.search-clear-btn { position: absolute; right: 48px; top: 50%; transform: translateY(-50%); background: #e6ebf2; border: none; border-radius: 50%; width: 24px; height: 24px; font-size: 0.75rem; color: #0B2545; font-weight: 800; line-height: 1; padding: 0; }
+.search-clear-btn:hover { background: #dc3545; color: #fff; }
+/* Hero: la foto real cubre el recuadro sin deformarse. */
+.banner-image { overflow: hidden; border-radius: 12px; }
+.banner-image img { width: 100%; height: 100%; object-fit: cover; border-radius: 12px; display: block; }
+/* Galería del detalle y del editor de producto. */
+.detail-gallery .thumbnails { display: flex; gap: 8px; margin-top: 10px; flex-wrap: wrap; }
+.detail-gallery .thumbnail { width: 64px; height: 64px; border: 2px solid #e6ebf2; border-radius: 8px; overflow: hidden; cursor: pointer; padding: 0; display: flex; align-items: center; justify-content: center; background: #f4f6fb; }
+.detail-gallery .thumbnail img { width: 100%; height: 100%; object-fit: cover; }
+.detail-gallery .thumbnail.active { border-color: #0056B3; }
+.detail-gallery .main-image img { width: 100%; max-height: 420px; object-fit: contain; border-radius: 12px; }
+.gallery-list { display: flex; gap: 10px; flex-wrap: wrap; margin: 8px 0; }
+.gallery-item { position: relative; width: 84px; height: 84px; border: 1px solid #e6ebf2; border-radius: 8px; overflow: hidden; }
+.gallery-item img { width: 100%; height: 100%; object-fit: cover; }
+.gallery-item button { position: absolute; top: 2px; right: 2px; background: #dc3545; color: #fff; border: none; border-radius: 50%; width: 22px; height: 22px; font-size: 0.7rem; line-height: 1; padding: 0; }
+
+/* v3.2: sin emojis — punto de color en lugar de icono en las tarjetas de estadísticas. */
+.stat-dot { width: 14px; height: 14px; border-radius: 50%; background: #0056B3; flex-shrink: 0; }
+.stat-primary .stat-dot { background: #0056B3; }
+.stat-success .stat-dot { background: #28a745; }
+.stat-warning .stat-dot { background: #ff9800; }
+.stat-info .stat-dot { background: #17a2b8; }
+.stat-danger .stat-dot { background: #dc3545; }
+
+
+/* v3.3: reglas que faltaban (clases usadas en index.html sin estilo propio). */
+.brand-filter { accent-color: #0056B3; }
+.cart-symbol { font-weight: 700; color: #ffffff; font-size: 1rem; }

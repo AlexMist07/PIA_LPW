@@ -8,6 +8,11 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="styles.css">
+    <!-- Bootstrap 5 y jQuery (la guía del proyecto los lista en el front-end).
+         Bootstrap es un framework de CSS/JS, NO una plantilla: todo el diseño
+         de CoreDesk Tech sigue siendo CSS propio en styles.css. -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
 </head>
 <body>
 
@@ -22,14 +27,15 @@
                 </div>
                 
                 <div class="search-bar">
-                    <input type="text" id="global-search" placeholder="Buscar en CoreDesk Tech... (ej. RTX, Ryzen)">
-                    <button class="search-btn">🔍</button>
+                    <input type="text" id="global-search" placeholder="Buscar en CoreDesk Tech... (ej. RTX, Ryzen)" autocomplete="off">
+                    <button class="search-btn">Buscar</button>
+                    <button class="search-clear-btn" id="clear-search" onclick="limpiarBusqueda()" title="Limpiar búsqueda" style="display:none;">✕</button>
                 </div>
 
                 <div class="header-actions">
                     <div class="user-area" id="user-area"></div>
                     <div class="cart-icon" onclick="toggleCartModal()">
-                        <span class="cart-symbol">🛒</span>
+                        <svg class="cart-svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"/></svg><span class="cart-symbol">Carrito</span>
                         <span class="cart-badge" id="cart-badge">0</span>
                     </div>
                 </div>
@@ -41,8 +47,10 @@
                 <button class="nav-toggle" onclick="toggleMobileNav()">☰ Categorías</button>
                 <ul class="nav-menu" id="nav-menu">
                     <li><a href="#" onclick="navigateTo('inicio'); return false;" data-view="inicio" class="active">Inicio</a></li>
-                    <li><a href="#" onclick="navigateTo('catalogo'); return false;" data-view="catalogo">Catálogo</a></li>
+                    <li><a href="#" onclick="abrirCatalogo(); return false;" data-view="catalogo">Catálogo</a></li>
                     <li><a href="#" onclick="navigateTo('ofertas'); return false;" data-view="ofertas">Ofertas</a></li>
+                    <li><a href="#" onclick="navigateTo('nosotros'); return false;" data-view="nosotros">Nosotros</a></li>
+                    <li><a href="#" onclick="navigateTo('contacto'); return false;" data-view="contacto">Contacto</a></li>
                     <li id="nav-admin-item" style="display:none;">
                         <a href="#" onclick="navigateTo('admin-panel'); return false;" data-view="admin-panel">Panel Admin</a>
                     </li>
@@ -73,7 +81,7 @@
                     <input type="password" id="login-password" required placeholder="••••••••">
                 </div>
                 <div class="auth-hint">
-                    <small>💡 Admin demo: <strong>admin@coredesk.com</strong> / <strong>admin123</strong></small>
+                    <small>Admin demo: <strong>admin@coredesk.com</strong> / <strong>admin123</strong></small>
                 </div>
                 <button type="submit" class="btn-primary" style="width:100%;">Entrar</button>
             </form>
@@ -112,7 +120,7 @@
                 <div class="total-row"><span>Subtotal:</span> <span id="cart-subtotal">$0.00</span></div>
                 <div class="total-row"><span>Envío:</span> <span id="cart-shipping">$0.00</span></div>
                 <div class="total-row grand-total"><span>Total:</span> <span id="cart-total">$0.00</span></div>
-                <button class="btn-primary checkout-btn" onclick="checkout()">Proceder al Pago</button>
+                <button class="btn-primary checkout-btn" onclick="iniciarCheckout()">Proceder al Pago</button>
             </div>
         </div>
     </div>
@@ -132,17 +140,23 @@
         <!-- Vista: Inicio -->
         <section id="inicio" class="view active">
             <div class="container">
-                <div class="banner-main">
+                <div class="banner-main hero-v3">
                     <div class="banner-text">
-                        <h1>Ofertas de Hardware para tu PC Gamer y Workstation</h1>
-                        <p>Componentes de alto rendimiento con garantía oficial.</p>
-                        <button class="btn-primary" onclick="navigateTo('catalogo')">Ver Catálogo</button>
+                        <h1 id="hero-titulo">Arma tu PC ideal con hardware original</h1>
+                        <p id="hero-subtitulo">Procesadores, tarjetas de video, RAM y más, con garantía oficial y precios en pesos.</p>
+                        <button class="btn-primary" onclick="abrirCatalogo()">Ver Catálogo</button>
+                        <button class="btn-secondary" onclick="navigateTo('ofertas')">Ver Ofertas</button>
+                        <div class="hero-badges">
+                            <span class="hero-badge">Envío gratis desde $1,000 MXN</span>
+                            <span class="hero-badge">Garantía oficial</span>
+                            <span class="hero-badge">Pago seguro</span>
+                        </div>
                     </div>
                     <div class="banner-image">
-                        <img src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='300' height='200' viewBox='0 0 300 200'%3E%3Crect width='300' height='200' fill='%23F0F4F8'/%3E%3Ctext x='50%25' y='50%25' dominant-baseline='middle' text-anchor='middle' font-family='Arial' font-size='20' fill='%230056B3'%3EPC Build%3C/text%3E%3C/svg%3E" alt="Banner">
+                        <img src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='300' height='200' viewBox='0 0 300 200'%3E%3Crect width='300' height='200' fill='%23F0F4F8'/%3E%3Ctext x='50%25' y='50%25' dominant-baseline='middle' text-anchor='middle' font-family='Arial' font-size='20' fill='%230056B3'%3EPC Build%3C/text%3E%3C/svg%3E" id="hero-imagen" alt="Banner">
                     </div>
                 </div>
-                <h2 class="section-title">⚡ Productos Destacados</h2>
+                <h2 class="section-title">Productos Destacados</h2>
                 <div id="featured-products" class="products-grid"></div>
             </div>
         </section>
@@ -187,7 +201,7 @@
                 </aside>
                 <div class="catalog-results">
                     <div id="catalog-products" class="products-grid"></div>
-                    <div id="no-results" class="no-results" style="display:none;">No se encontraron productos.</div>
+                    <div id="no-results" class="no-results" style="display:none;"><span id="no-results-text">No se encontraron productos.</span> <button class="btn-secondary" onclick="limpiarBusqueda()">Limpiar búsqueda</button></div>
                 </div>
             </div>
         </section>
@@ -196,7 +210,7 @@
         <section id="ofertas" class="view">
             <div class="container">
                 <div class="ofertas-hero">
-                    <h1>🔥 Ofertas Especiales</h1>
+                    <h1>Ofertas Especiales</h1>
                     <p>Descuentos exclusivos en componentes seleccionados por nuestro equipo.</p>
                 </div>
                 <div id="offers-products" class="products-grid"></div>
@@ -212,16 +226,168 @@
             </div>
         </section>
 
+        <!-- Vista: Checkout en pasos (v3) -->
+        <section id="checkout" class="view">
+            <div class="container checkout-container">
+                <h2 class="section-title">Finalizar Compra</h2>
+                <div class="checkout-steps">
+                    <div class="checkout-step active" id="co-paso-1"><span class="checkout-step-num">1</span> Carrito</div>
+                    <div class="checkout-step" id="co-paso-2"><span class="checkout-step-num">2</span> Dirección</div>
+                    <div class="checkout-step" id="co-paso-3"><span class="checkout-step-num">3</span> Pago</div>
+                    <div class="checkout-step" id="co-paso-4"><span class="checkout-step-num">4</span> Confirmar</div>
+                </div>
+
+                <!-- Paso 1: revisar carrito -->
+                <div class="checkout-panel" id="co-panel-1">
+                    <h3>Revisa tu carrito</h3>
+                    <div id="checkout-items" class="cart-items-list"></div>
+                    <div class="cart-totals">
+                        <div class="total-row"><span>Subtotal:</span> <span id="co-subtotal">$0</span></div>
+                        <div class="total-row"><span>Envío:</span> <span id="co-envio">$0</span></div>
+                        <div class="total-row grand-total"><span>Total:</span> <span id="co-total">$0</span></div>
+                    </div>
+                    <p id="co-error-1" class="checkout-error" style="display:none;"></p>
+                    <div class="checkout-actions">
+                        <button class="btn-secondary" onclick="navigateTo('catalogo')">Seguir Comprando</button>
+                        <button class="btn-primary" onclick="mostrarPasoCheckout(2)">Continuar a Dirección</button>
+                    </div>
+                </div>
+
+                <!-- Paso 2: dirección de envío -->
+                <div class="checkout-panel" id="co-panel-2" style="display:none;">
+                    <h3>Dirección de Envío</h3>
+                    <form id="form-direccion" onsubmit="event.preventDefault(); mostrarPasoCheckout(3);">
+                        <div class="form-row">
+                            <div class="form-group"><label>Nombre completo *</label><input type="text" id="co-nombre" required placeholder="Nombre y apellidos"></div>
+                            <div class="form-group"><label>Teléfono *</label><input type="tel" id="co-telefono" required placeholder="10 dígitos" maxlength="15"></div>
+                        </div>
+                        <div class="form-group"><label>Calle y número *</label><input type="text" id="co-calle" required placeholder="Ej. Av. Universidad 123, Int. 4"></div>
+                        <div class="form-row">
+                            <div class="form-group"><label>Colonia *</label><input type="text" id="co-colonia" required placeholder="Colonia"></div>
+                            <div class="form-group"><label>Ciudad *</label><input type="text" id="co-ciudad" required placeholder="Ej. Monterrey"></div>
+                            <div class="form-group"><label>Código Postal *</label><input type="text" id="co-cp" required placeholder="5 dígitos" maxlength="5" inputmode="numeric"></div>
+                        </div>
+                        <p id="co-error-2" class="checkout-error" style="display:none;"></p>
+                        <div class="checkout-actions">
+                            <button type="button" class="btn-secondary" onclick="mostrarPasoCheckout(1)">Atrás</button>
+                            <button type="submit" class="btn-primary">Continuar a Pago</button>
+                        </div>
+                    </form>
+                </div>
+
+                <!-- Paso 3: pago con tarjeta (solo se valida el formato; NUNCA se guarda la tarjeta) -->
+                <div class="checkout-panel" id="co-panel-3" style="display:none;">
+                    <h3>Pago con Tarjeta</h3>
+                    <p class="checkout-note">Pago simulado para el proyecto escolar: la tarjeta solo se valida en tu navegador y <strong>nunca se guarda ni se envía completa al servidor</strong>. Solo se guardan el método de pago y los últimos 4 dígitos.</p>
+                    <form id="form-pago" onsubmit="event.preventDefault(); mostrarPasoCheckout(4);">
+                        <div class="form-group"><label>Nombre del titular *</label><input type="text" id="co-titular" required placeholder="Como aparece en la tarjeta"></div>
+                        <div class="form-group"><label>Número de tarjeta *</label><input type="text" id="co-tarjeta" required placeholder="1234 5678 9012 3456" maxlength="19" inputmode="numeric" oninput="formatearTarjeta(this)"></div>
+                        <div class="form-row">
+                            <div class="form-group"><label>Vencimiento (MM/AA) *</label><input type="text" id="co-vencimiento" required placeholder="MM/AA" maxlength="5" inputmode="numeric" oninput="formatearVencimiento(this)"></div>
+                            <div class="form-group"><label>CVV *</label><input type="password" id="co-cvv" required placeholder="3 dígitos" maxlength="3" inputmode="numeric"></div>
+                        </div>
+                        <p id="co-error-3" class="checkout-error" style="display:none;"></p>
+                        <div class="checkout-actions">
+                            <button type="button" class="btn-secondary" onclick="mostrarPasoCheckout(2)">Atrás</button>
+                            <button type="submit" class="btn-primary">Revisar Pedido</button>
+                        </div>
+                    </form>
+                </div>
+
+                <!-- Paso 4: resumen y confirmación -->
+                <div class="checkout-panel" id="co-panel-4" style="display:none;">
+                    <h3>Confirma tu Pedido</h3>
+                    <div id="checkout-resumen"></div>
+                    <p id="co-error-4" class="checkout-error" style="display:none;"></p>
+                    <div class="checkout-actions">
+                        <button class="btn-secondary" onclick="mostrarPasoCheckout(3)">Atrás</button>
+                        <button class="btn-primary" id="co-confirmar-btn" onclick="confirmarCompra()">Confirmar Compra</button>
+                    </div>
+                </div>
+
+                <!-- Éxito -->
+                <div class="checkout-panel checkout-exito" id="co-panel-exito" style="display:none;">
+                    <h3>¡Gracias por tu compra!</h3>
+                    <p>Tu pedido quedó registrado con el número:</p>
+                    <p class="checkout-orden-numero" id="checkout-orden-numero">#0</p>
+                    <p id="checkout-exito-detalle"></p>
+                    <div class="checkout-actions">
+                        <button class="btn-primary" onclick="navigateTo('mi-perfil'); renderProfile('pedidos');">Ver Mis Pedidos</button>
+                        <button class="btn-secondary" onclick="navigateTo('catalogo')">Seguir Comprando</button>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Vista: Nosotros (pantalla de información estática) -->
+        <section id="nosotros" class="view">
+            <div class="container info-page">
+                <h2 class="section-title">Nosotros — CoreDesk Tech</h2>
+                <p><strong>CoreDesk Tech</strong> es una tienda en línea de hardware para computadoras: procesadores, tarjetas de video, memorias RAM, almacenamiento, gabinetes, monitores y periféricos para armar PC gamer y estaciones de trabajo.</p>
+                <p>Nuestro objetivo es que armar o mejorar tu PC sea sencillo: catálogo claro con precios en pesos mexicanos, ofertas reales, envío gratis en compras desde $1,000 MXN y atención en español.</p>
+                <h3>Nuestro equipo</h3>
+                <p>CoreDesk Tech es el proyecto final de Programación Web (Laboratorio, Grupo 416) de la Facultad de Ingeniería Mecánica y Eléctrica (FIME) de la UANL, a cargo del Ing. Luis Daniel Lepe Rodríguez.</p>
+                <ul>
+                    <li><strong>Manuel Alexander Fuentes Contreras</strong> — Matrícula 2134970</li>
+                    <li><strong>Jaime Sebastián Esparza Leyva</strong> — Matrícula 2097304</li>
+                </ul>
+                <p>Estamos en Monterrey, Nuevo León, México. El proyecto usa HTML, CSS y JavaScript en el front-end, Node.js con Express en el back-end y MySQL como base de datos.</p>
+                <h3 id="terminos">Términos y Condiciones</h3>
+                <ul>
+                    <li>Todos los precios están en pesos mexicanos (MXN) e incluyen IVA.</li>
+                    <li>El envío es gratis en compras con subtotal desde $1,000 MXN; en compras menores el envío cuesta $150 MXN.</li>
+                    <li>El stock está sujeto a disponibilidad: si un producto se agota, no se puede agregar al carrito.</li>
+                    <li>Las ofertas muestran el precio original tachado y el precio con descuento; el descuento se aplica al pagar.</li>
+                </ul>
+                <h3 id="privacidad">Política de Privacidad</h3>
+                <ul>
+                    <li>Solo pedimos los datos necesarios para crear tu cuenta y procesar tus pedidos: nombre, correo y contraseña (que se guarda cifrada, nunca en texto plano).</li>
+                    <li>Tus datos no se comparten con terceros ni se usan para publicidad.</li>
+                    <li>Puedes pedir que se elimine tu cuenta escribiéndonos desde la página de Contacto.</li>
+                </ul>
+            </div>
+        </section>
+
+        <!-- Vista: Contacto (pantalla de información estática) -->
+        <section id="contacto" class="view">
+            <div class="container info-page">
+                <h2 class="section-title">Contacto</h2>
+                <p>¿Tienes dudas sobre un producto, un pedido o una oferta? Escríbenos y te respondemos.</p>
+                <ul>
+                    <li><strong>Correo:</strong> contacto@coredesk.tech</li>
+                    <li><strong>Horario de atención:</strong> lunes a viernes, 9:00 a 18:00</li>
+                    <li><strong>Ubicación:</strong> Monterrey, Nuevo León, México</li>
+                </ul>
+                <form id="form-contacto" onsubmit="enviarContacto(event)">
+                    <div class="form-group">
+                        <label>Nombre *</label>
+                        <input type="text" id="contacto-nombre" required placeholder="Tu nombre">
+                    </div>
+                    <div class="form-group">
+                        <label>Correo *</label>
+                        <input type="email" id="contacto-correo" required placeholder="tu@correo.com">
+                    </div>
+                    <div class="form-group">
+                        <label>Mensaje *</label>
+                        <textarea id="contacto-mensaje" rows="4" required placeholder="Escribe tu mensaje"></textarea>
+                    </div>
+                    <button type="submit" class="btn-primary">Enviar mensaje</button>
+                </form>
+                <div id="contacto-confirmacion" style="display:none;background:#d4edda;border-left:4px solid #28a745;padding:15px;border-radius:8px;margin-top:15px;"></div>
+                <p style="margin-top:15px;color:#666;font-size:0.85rem;">Este formulario es de demostración: el mensaje se confirma en esta página y no se envía a ningún servidor.</p>
+            </div>
+        </section>
+
         <!-- Vista: Mi Perfil -->
         <section id="mi-perfil" class="view">
             <div class="container profile-container">
-                <h2 class="section-title">👤 Mi Perfil</h2>
+                <h2 class="section-title">Mi Perfil</h2>
                 <div class="profile-layout">
                     <aside class="profile-sidebar">
-                        <button class="profile-tab active" onclick="switchProfileTab('datos')">📝 Mis Datos</button>
-                        <button class="profile-tab" onclick="switchProfileTab('pedidos')">📦 Mis Pedidos</button>
-                        <button class="profile-tab" onclick="switchProfileTab('resenas')">⭐ Mis Reseñas</button>
-                        <button class="profile-tab" onclick="switchProfileTab('seguridad')">🔒 Seguridad</button>
+                        <button class="profile-tab active" onclick="switchProfileTab('datos')">Mis Datos</button>
+                        <button class="profile-tab" onclick="switchProfileTab('pedidos')">Mis Pedidos</button>
+                        <button class="profile-tab" onclick="switchProfileTab('resenas')">Mis Reseñas</button>
+                        <button class="profile-tab" onclick="switchProfileTab('seguridad')">Seguridad</button>
                     </aside>
                     <div class="profile-content" id="profile-content"></div>
                 </div>
@@ -242,35 +408,39 @@
                     
                     <nav class="admin-sidebar-nav">
                         <button class="admin-nav-item active" onclick="switchAdminTab('dashboard', event)" data-tab="dashboard">
-                            <span class="admin-nav-icon">📊</span>
+                            <span class="admin-nav-icon">•</span>
                             <span>Dashboard</span>
                         </button>
                         <button class="admin-nav-item" onclick="switchAdminTab('inventario', event)" data-tab="inventario">
-                            <span class="admin-nav-icon">📦</span>
+                            <span class="admin-nav-icon">•</span>
                             <span>Inventario</span>
                             <span class="admin-nav-count" id="count-products">0</span>
                         </button>
                         <button class="admin-nav-item" onclick="switchAdminTab('destacados', event)" data-tab="destacados">
-                            <span class="admin-nav-icon">⭐</span>
+                            <span class="admin-nav-icon">•</span>
                             <span>Destacados</span>
                         </button>
                         <button class="admin-nav-item" onclick="switchAdminTab('ofertas-admin', event)" data-tab="ofertas-admin">
-                            <span class="admin-nav-icon">🏷️</span>
+                            <span class="admin-nav-icon">•</span>
                             <span>Ofertas</span>
                         </button>
                         <button class="admin-nav-item" onclick="switchAdminTab('ventas', event)" data-tab="ventas">
-                            <span class="admin-nav-icon">💰</span>
+                            <span class="admin-nav-icon">•</span>
                             <span>Ventas</span>
                             <span class="admin-nav-count" id="count-orders">0</span>
                         </button>
                         <button class="admin-nav-item" onclick="switchAdminTab('usuarios', event)" data-tab="usuarios">
-                            <span class="admin-nav-icon">👥</span>
+                            <span class="admin-nav-icon">•</span>
                             <span>Usuarios</span>
                             <span class="admin-nav-count" id="count-users">0</span>
                         </button>
+                        <button class="admin-nav-item" onclick="switchAdminTab('apariencia', event)" data-tab="apariencia">
+                            <span class="admin-nav-icon">•</span>
+                            <span>Apariencia</span>
+                        </button>
                         <div class="admin-nav-divider"></div>
                         <button class="admin-nav-item" onclick="navigateTo('inicio')">
-                            <span class="admin-nav-icon">🏠</span>
+                            <span class="admin-nav-icon">•</span>
                             <span>Ver Tienda</span>
                         </button>
                     </nav>
@@ -292,7 +462,7 @@
                         <div class="stats-grid">
                             <div class="stat-card stat-primary">
                                 <div class="stat-card-header">
-                                    <span class="stat-icon">💰</span>
+                                    <span class="stat-dot"></span>
                                     <span class="stat-trend up">+12%</span>
                                 </div>
                                 <p class="stat-value" id="stat-ingresos">$0</p>
@@ -301,7 +471,7 @@
                             </div>
                             <div class="stat-card stat-success">
                                 <div class="stat-card-header">
-                                    <span class="stat-icon">🛒</span>
+                                    <span class="stat-dot"></span>
                                     <span class="stat-trend up">+8%</span>
                                 </div>
                                 <p class="stat-value" id="stat-ordenes">0</p>
@@ -310,7 +480,7 @@
                             </div>
                             <div class="stat-card stat-warning">
                                 <div class="stat-card-header">
-                                    <span class="stat-icon">📦</span>
+                                    <span class="stat-dot"></span>
                                     <span class="stat-trend">Activos</span>
                                 </div>
                                 <p class="stat-value" id="stat-productos">0</p>
@@ -319,19 +489,28 @@
                             </div>
                             <div class="stat-card stat-info">
                                 <div class="stat-card-header">
-                                    <span class="stat-icon">👥</span>
+                                    <span class="stat-dot"></span>
                                     <span class="stat-trend up">+3</span>
                                 </div>
                                 <p class="stat-value" id="stat-usuarios">0</p>
                                 <p class="stat-label">Usuarios Registrados</p>
                                 <div class="stat-bar"><div class="stat-bar-fill" style="width:45%"></div></div>
                             </div>
+                            <div class="stat-card stat-danger">
+                                <div class="stat-card-header">
+                                    <span class="stat-dot"></span>
+                                    <span class="stat-trend">Revisar</span>
+                                </div>
+                                <p class="stat-value" id="stat-stockbajo">0</p>
+                                <p class="stat-label">Productos con Stock Bajo</p>
+                                <div class="stat-bar"><div class="stat-bar-fill" style="width:30%"></div></div>
+                            </div>
                         </div>
 
                         <div class="dashboard-grid">
                             <div class="dashboard-card">
                                 <div class="dashboard-card-header">
-                                    <h3>📈 Ventas Recientes</h3>
+                                    <h3>Ventas Recientes</h3>
                                     <button class="link-btn" onclick="switchAdminTab('ventas', event)">Ver todas →</button>
                                 </div>
                                 <div id="recent-sales" class="dashboard-list"></div>
@@ -339,7 +518,7 @@
 
                             <div class="dashboard-card">
                                 <div class="dashboard-card-header">
-                                    <h3>⚠️ Alerta de Stock</h3>
+                                    <h3>Alerta de Stock</h3>
                                     <button class="link-btn" onclick="switchAdminTab('inventario', event)">Gestionar →</button>
                                 </div>
                                 <div id="low-stock-list" class="dashboard-list"></div>
@@ -348,7 +527,7 @@
 
                         <div class="dashboard-card" style="margin-top:24px;">
                             <div class="dashboard-card-header">
-                                <h3>🏆 Top 5 Productos Más Vendidos</h3>
+                                <h3>Top 5 Productos Más Vendidos</h3>
                                 <span class="badge-mini">Histórico</span>
                             </div>
                             <div id="top-products" class="top-products-list"></div>
@@ -359,7 +538,7 @@
                     <div id="admin-inventario" class="admin-section">
                         <div class="admin-toolbar">
                             <div class="search-input-group">
-                                <span>🔍</span>
+                                
                                 <input type="text" id="admin-search" placeholder="Buscar producto por nombre, marca o categoría..." oninput="renderAdminTable()">
                             </div>
                             <select id="admin-filter-category" class="filter-select" onchange="renderAdminTable()">
@@ -397,7 +576,6 @@
                     <!-- Destacados -->
                     <div id="admin-destacados" class="admin-section">
                         <div class="info-banner">
-                            <div class="info-banner-icon">⭐</div>
                             <div>
                                 <strong>¿Qué son los productos destacados?</strong>
                                 <p>Son los productos que aparecen en la página de inicio de CoreDesk Tech. Puedes seleccionarlos manualmente o dejar que el sistema elija automáticamente los más vendidos.</p>
@@ -408,7 +586,6 @@
                             <label class="mode-option">
                                 <input type="radio" name="featured-mode" value="auto" onchange="setFeaturedMode('auto')">
                                 <div class="mode-card">
-                                    <span class="mode-icon">🤖</span>
                                     <strong>Automático</strong>
                                     <small>Los 8 productos más vendidos del historial</small>
                                 </div>
@@ -416,7 +593,6 @@
                             <label class="mode-option">
                                 <input type="radio" name="featured-mode" value="manual" onchange="setFeaturedMode('manual')">
                                 <div class="mode-card">
-                                    <span class="mode-icon">✋</span>
                                     <strong>Manual</strong>
                                     <small>Selecciona qué productos mostrar y en qué orden</small>
                                 </div>
@@ -426,19 +602,19 @@
                         <div id="featured-manual-section" style="display:none;">
                             <div class="admin-toolbar">
                                 <div class="search-input-group">
-                                    <span>🔍</span>
+                                    
                                     <input type="text" id="featured-search" placeholder="Buscar producto para destacar..." oninput="renderFeaturedCandidates()">
                                 </div>
-                                <button class="btn-secondary" onclick="autoFillFeatured()">🤖 Autocompletar con más vendidos</button>
+                                <button class="btn-secondary" onclick="autoFillFeatured()">Autocompletar con más vendidos</button>
                             </div>
 
                             <div class="featured-layout">
                                 <div class="featured-panel">
-                                    <h3>📌 Actualmente Destacados (<span id="featured-count">0</span>/8)</h3>
+                                    <h3>Actualmente Destacados (<span id="featured-count">0</span>/8)</h3>
                                     <div id="featured-active-list" class="featured-list"></div>
                                 </div>
                                 <div class="featured-panel">
-                                    <h3>📚 Productos Disponibles</h3>
+                                    <h3>Productos Disponibles</h3>
                                     <div id="featured-candidates-list" class="featured-list"></div>
                                 </div>
                             </div>
@@ -448,7 +624,6 @@
                     <!-- Ofertas Admin -->
                     <div id="admin-ofertas-admin" class="admin-section">
                         <div class="info-banner info-banner-warning">
-                            <div class="info-banner-icon">🏷️</div>
                             <div>
                                 <strong>Gestión de Ofertas</strong>
                                 <p>Activa el modo oferta en productos específicos y define un porcentaje de descuento. Los productos en oferta aparecerán en la sección "Ofertas" del sitio y mostrarán el precio original tachado.</p>
@@ -457,7 +632,7 @@
 
                         <div class="admin-toolbar">
                             <div class="search-input-group">
-                                <span>🔍</span>
+                                
                                 <input type="text" id="offers-search" placeholder="Buscar producto..." oninput="renderOffersAdminTable()">
                             </div>
                             <select id="offers-filter" class="filter-select" onchange="renderOffersAdminTable()">
@@ -506,7 +681,6 @@
 
                         <!-- Banner del rango activo -->
                         <div class="date-range-banner" id="date-range-banner">
-                            <span class="date-range-icon">📅</span>
                             <div>
                                 <strong id="date-range-label">Mostrando todas las ventas</strong>
                                 <small id="date-range-detail">Sin filtro de fecha aplicado</small>
@@ -516,28 +690,24 @@
                         <!-- Resumen del período -->
                         <div class="period-summary" id="period-summary">
                             <div class="period-stat">
-                                <span class="period-stat-icon">💰</span>
                                 <div>
                                     <p class="period-stat-value" id="period-revenue">$0</p>
                                     <p class="period-stat-label">Ingresos del período</p>
                                 </div>
                             </div>
                             <div class="period-stat">
-                                <span class="period-stat-icon">🧾</span>
                                 <div>
                                     <p class="period-stat-value" id="period-orders">0</p>
                                     <p class="period-stat-label">Órdenes</p>
                                 </div>
                             </div>
                             <div class="period-stat">
-                                <span class="period-stat-icon">📊</span>
                                 <div>
                                     <p class="period-stat-value" id="period-avg">$0</p>
                                     <p class="period-stat-label">Ticket promedio</p>
                                 </div>
                             </div>
                             <div class="period-stat">
-                                <span class="period-stat-icon">🏆</span>
                                 <div>
                                     <p class="period-stat-value" id="period-top" style="font-size:0.9rem;">—</p>
                                     <p class="period-stat-label">Producto top</p>
@@ -548,7 +718,7 @@
                         <!-- Gráfico de barras -->
                         <div class="chart-card">
                             <div class="chart-header">
-                                <h3>📈 Ventas por <span id="chart-period-label">día</span></h3>
+                                <h3>Ventas por <span id="chart-period-label">día</span></h3>
                                 <span class="badge-mini" id="chart-total-orders">0 órdenes</span>
                             </div>
                             <div id="sales-chart" class="sales-chart"></div>
@@ -557,7 +727,7 @@
                         <!-- Filtros de búsqueda y tabla -->
                         <div class="admin-toolbar">
                             <div class="search-input-group">
-                                <span>🔍</span>
+                                
                                 <input type="text" id="orders-search" placeholder="Buscar por cliente o número de orden..." oninput="renderOrdersTable()">
                             </div>
                             <select id="orders-filter-status" class="filter-select" onchange="renderOrdersTable()">
@@ -576,7 +746,7 @@
                     <div id="admin-usuarios" class="admin-section">
                         <div class="admin-toolbar">
                             <div class="search-input-group">
-                                <span>🔍</span>
+                                
                                 <input type="text" id="users-search" placeholder="Buscar usuario por nombre o email..." oninput="renderUsersTable()">
                             </div>
                             <select id="users-filter-role" class="filter-select" onchange="renderUsersTable()">
@@ -599,6 +769,39 @@
                                 </thead>
                                 <tbody id="users-table-body"></tbody>
                             </table>
+                        </div>
+                    </div>
+                    <!-- Apariencia (hero editable, v3.1) -->
+                    <div id="admin-apariencia" class="admin-section">
+                        <div class="info-page" style="max-width:720px;margin:0;">
+                            <h3>Imagen principal (hero) de Inicio</h3>
+                            <p style="color:#666;font-size:0.9rem;">Lo que cambies aquí se guarda en el servidor y lo ven todos los visitantes de la tienda.</p>
+                            <form id="form-hero" onsubmit="guardarHero(event)">
+                                <div class="form-group">
+                                    <label>Título</label>
+                                    <input type="text" id="hero-form-titulo" maxlength="120" required>
+                                </div>
+                                <div class="form-group">
+                                    <label>Subtítulo</label>
+                                    <input type="text" id="hero-form-subtitulo" maxlength="200" required>
+                                </div>
+                                <div class="form-group">
+                                    <label>Imagen del hero</label>
+                                    <div class="image-upload-area">
+                                        <div class="image-preview" id="hero-image-preview">
+                                            <span style="color:#999;font-size:0.85rem;">Sin imagen (se muestra el recuadro PC Build)</span>
+                                        </div>
+                                        <div class="image-upload-controls">
+                                            <label class="btn-secondary upload-btn">
+                                                Subir Imagen
+                                                <input type="file" id="hero-form-image-file" accept="image/*" onchange="handleHeroImageUpload(event)" style="display:none;">
+                                            </label>
+                                            <input type="text" id="hero-form-image-url" placeholder="O pega una URL de imagen" oninput="handleHeroImageUrl(this.value)">
+                                        </div>
+                                    </div>
+                                </div>
+                                <button type="submit" class="btn-primary">Guardar apariencia</button>
+                            </form>
                         </div>
                     </div>
                 </div>
@@ -667,12 +870,25 @@
                         </div>
                         <div class="image-upload-controls">
                             <label class="btn-secondary upload-btn">
-                                📁 Subir Imagen
+                                Subir Imagen
                                 <input type="file" id="form-image-file" accept="image/*" onchange="handleImageUpload(event)" style="display:none;">
                             </label>
                             <input type="text" id="form-image-url" placeholder="O pega una URL de imagen" oninput="handleImageUrl(this.value)">
-                            <button type="button" class="btn-secondary" onclick="clearImage()">🗑️ Quitar</button>
+                            <button type="button" class="btn-secondary" onclick="clearImage()">Quitar</button>
                         </div>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label>Fotos adicionales (galería)</label>
+                    <div id="gallery-editor"><p style="color:#888;font-size:0.85rem;">Guarda el producto primero para agregar fotos extra.</p></div>
+                    <div class="image-upload-controls" style="margin-top:10px;">
+                        <label class="btn-secondary upload-btn">
+                            Subir foto
+                            <input type="file" id="gallery-image-file" accept="image/*" onchange="agregarFotoGaleriaArchivo(event)" style="display:none;">
+                        </label>
+                        <input type="text" id="gallery-image-url" placeholder="O pega una URL de imagen">
+                        <button type="button" class="btn-secondary" onclick="agregarFotoGaleriaUrl()">+ Agregar</button>
                     </div>
                 </div>
 
@@ -689,7 +905,7 @@
 
                 <div class="form-group" style="background:#f8f9fa;padding:12px;border-radius:8px;">
                     <label class="checkbox-label" style="font-size:0.9rem;font-weight:700;">
-                        <input type="checkbox" id="form-isoffer" onchange="toggleDiscountField()"> 🏷️ Activar Oferta
+                        <input type="checkbox" id="form-isoffer" onchange="toggleDiscountField()"> Activar Oferta
                     </label>
                     <div id="discount-field" style="display:none;margin-top:12px;">
                         <label style="font-size:0.8rem;color:#555;">Porcentaje de descuento</label>
@@ -715,19 +931,19 @@
             <div class="footer-col">
                 <h4>Enlaces</h4>
                 <ul>
-                    <li><a href="#">Nosotros</a></li>
-                    <li><a href="#">Contacto</a></li>
-                    <li><a href="#">Términos y Condiciones</a></li>
-                    <li><a href="#">Política de Privacidad</a></li>
+                    <li><a href="#" onclick="navigateTo('nosotros'); return false;">Nosotros</a></li>
+                    <li><a href="#" onclick="navigateTo('contacto'); return false;">Contacto</a></li>
+                    <li><a href="#" onclick="navigateTo('nosotros', 'terminos'); return false;">Términos y Condiciones</a></li>
+                    <li><a href="#" onclick="navigateTo('nosotros', 'privacidad'); return false;">Política de Privacidad</a></li>
                 </ul>
             </div>
             <div class="footer-col">
                 <h4>Categorías</h4>
                 <ul>
-                    <li><a href="#" onclick="navigateTo('catalogo'); return false;">Procesadores</a></li>
-                    <li><a href="#" onclick="navigateTo('catalogo'); return false;">Tarjetas de Video</a></li>
-                    <li><a href="#" onclick="navigateTo('catalogo'); return false;">Monitores</a></li>
-                    <li><a href="#" onclick="navigateTo('catalogo'); return false;">Periféricos</a></li>
+                    <li><a href="#" onclick="abrirCatalogo(); return false;">Procesadores</a></li>
+                    <li><a href="#" onclick="abrirCatalogo(); return false;">Tarjetas de Video</a></li>
+                    <li><a href="#" onclick="abrirCatalogo(); return false;">Monitores</a></li>
+                    <li><a href="#" onclick="abrirCatalogo(); return false;">Periféricos</a></li>
                 </ul>
             </div>
         </div>
@@ -736,6 +952,27 @@
         </div>
     </footer>
 
+    <!-- Modal de confirmación (Bootstrap, v3): reemplaza a window.confirm -->
+    <div class="modal fade" id="confirm-modal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="confirm-modal-title">Confirmar</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+                </div>
+                <div class="modal-body" id="confirm-modal-body"></div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal" id="confirm-modal-cancel">Cancelar</button>
+                    <button type="button" class="btn btn-danger" id="confirm-modal-ok">Confirmar</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Avisos (toasts de Bootstrap, v3) -->
+    <div class="toast-container position-fixed bottom-0 end-0 p-3" id="toast-container"></div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
     <script src="app.js"></script>
 </body>
 </html>
