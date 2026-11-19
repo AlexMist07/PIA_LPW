@@ -21,6 +21,7 @@
 //       se usa el modo manual; si está vacía, el modo automático.
 //       Por eso la lista manual se guarda completa con PUT (se reemplaza).
 const express = require('express');
+const bcrypt = require('bcryptjs');
 const { pool } = require('../db');
 const { requireAuth, requireAdmin } = require('../middleware/auth');
 
@@ -97,6 +98,10 @@ router.get('/usuarios', async (req, res, next) => {
 });
 
 // PUT /api/admin/usuarios/:id/rol — Cambiar el rol. Body: { rol: "admin" | "cliente" }
+// Dar el rol admin exige además la contraseña del administrador que hace el
+// cambio (body.password): se compara con bcrypt contra su propio hash en la
+// base de datos. Quitar el rol admin no pide contraseña, solo la
+// confirmación de la página.
 router.put('/usuarios/:id/rol', async (req, res, next) => {
     try {
         const id = Number(req.params.id);
@@ -106,6 +111,17 @@ router.put('/usuarios/:id/rol', async (req, res, next) => {
         }
         if (id === req.usuario.id_usuario) {
             return res.status(400).json({ error: 'No puedes cambiar tu propio rol.' });
+        }
+        if (rol === 'admin') {
+            const password = req.body.password || '';
+            if (!password) {
+                return res.status(400).json({ error: 'Escribe tu contraseña de administrador para dar el rol admin.' });
+            }
+            const [[admin]] = await pool.query('SELECT password_hash FROM usuarios WHERE id_usuario = ?', [req.usuario.id_usuario]);
+            const correcta = admin && admin.password_hash && await bcrypt.compare(password, admin.password_hash);
+            if (!correcta) {
+                return res.status(403).json({ error: 'Contraseña de administrador incorrecta.' });
+            }
         }
         const [filas] = await pool.query('SELECT id_rol FROM roles WHERE nombre = ?', [rol]);
         const [r] = await pool.query('UPDATE usuarios SET id_rol = ? WHERE id_usuario = ?', [filas[0].id_rol, id]);

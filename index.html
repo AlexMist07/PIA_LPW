@@ -1063,6 +1063,28 @@
         </div>
     </div>
 
+    <!-- Dar rol admin: pide la contraseña del administrador (v3.3.2).
+         Usa el modal propio del sitio (modal-overlay), no el de Bootstrap,
+         para que funcione aunque no cargue el CDN. -->
+    <div id="admin-password-modal" class="modal-overlay" onclick="cerrarPasswordAdminOutside(event)">
+        <div class="modal-form">
+            <div class="modal-header">
+                <h2>Confirmar con tu contraseña</h2>
+                <button class="close-modal" onclick="cerrarPasswordAdmin()">✕</button>
+            </div>
+            <p id="admin-password-body" style="margin:0 0 12px;color:#444;"></p>
+            <div class="form-group">
+                <label>Tu contraseña de administrador</label>
+                <input type="password" id="admin-password-input" placeholder="Escribe tu contraseña" autocomplete="current-password">
+                <small id="admin-password-error" style="display:none;color:#dc3545;"></small>
+            </div>
+            <div style="display:flex;gap:10px;justify-content:flex-end;">
+                <button type="button" class="btn-secondary" onclick="cerrarPasswordAdmin()">Cancelar</button>
+                <button type="button" class="btn-primary" onclick="confirmarPasswordAdmin()">Dar rol admin</button>
+            </div>
+        </div>
+    </div>
+
     <!-- v4: botón para volver arriba -->
     <button class="back-to-top" id="back-to-top" onclick="window.scrollTo({ top: 0, behavior: 'smooth' })" aria-label="Volver arriba">
         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 15 6-6 6 6"/></svg>

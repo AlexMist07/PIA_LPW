@@ -1650,16 +1650,39 @@ async function setFeaturedMode(mode) {
         if (mode === 'auto') {
             featuredConfig = { mode: 'auto', ids: [] };
             await guardarDestacados();
+            await renderFeaturedAdmin();
         } else {
+            // Manual con la lista vacía no tiene nada que guardar todavía:
+            // el servidor deduce el modo de la tabla destacados y una tabla
+            // vacía significa "automático", así que un PUT con [] no serviría.
+            // El modo manual vive solo en la página hasta que agregues el
+            // primer producto con + (cada + hace PUT con la lista completa).
+            // Por eso aquí NO se vuelve a leer del servidor: esa lectura
+            // devolvía "auto" y regresaba el radio a Automático, como si
+            // el botón no funcionara.
             featuredConfig.mode = 'manual';
-            if (featuredConfig.ids.length > 0) await guardarDestacados();
+            pintarDestacadosAdmin();
         }
     } catch (e) {
         mostrarError(e);
         return;
     }
-    renderFeaturedAdmin();
     renderFeaturedProducts();
+}
+
+// Pinta radios + sección manual + listas desde featuredConfig, sin pedirle
+// nada al servidor. Se usa después de cada cambio local del modo o la lista.
+function pintarDestacadosAdmin() {
+    document.querySelectorAll('input[name="featured-mode"]').forEach(r => {
+        r.checked = (r.value === featuredConfig.mode);
+    });
+
+    const manualSection = document.getElementById('featured-manual-section');
+    if (manualSection) {
+        manualSection.style.display = featuredConfig.mode === 'manual' ? 'block' : 'none';
+    }
+    renderFeaturedActiveList();
+    renderFeaturedCandidates();
 }
 
 async function renderFeaturedAdmin() {
@@ -1674,16 +1697,7 @@ async function renderFeaturedAdmin() {
         return;
     }
 
-    document.querySelectorAll('input[name="featured-mode"]').forEach(r => {
-        r.checked = (r.value === featuredConfig.mode);
-    });
-
-    const manualSection = document.getElementById('featured-manual-section');
-    if (manualSection) {
-        manualSection.style.display = featuredConfig.mode === 'manual' ? 'block' : 'none';
-    }
-    renderFeaturedActiveList();
-    renderFeaturedCandidates();
+    pintarDestacadosAdmin();
 }
 
 function renderFeaturedActiveList() {
@@ -1766,8 +1780,7 @@ async function addFeatured(productId) {
         mostrarError(e);
         return;
     }
-    renderFeaturedActiveList();
-    renderFeaturedCandidates();
+    pintarDestacadosAdmin();
     renderFeaturedProducts();
 }
 
@@ -1779,8 +1792,7 @@ async function removeFeatured(productId) {
         mostrarError(e);
         return;
     }
-    renderFeaturedActiveList();
-    renderFeaturedCandidates();
+    pintarDestacadosAdmin();
     renderFeaturedProducts();
 }
 
@@ -1796,7 +1808,7 @@ async function moveFeatured(index, direction) {
         mostrarError(e);
         return;
     }
-    renderFeaturedActiveList();
+    pintarDestacadosAdmin();
     renderFeaturedProducts();
 }
 
@@ -1808,8 +1820,7 @@ async function autoFillFeatured() {
         mostrarError(e);
         return;
     }
-    renderFeaturedActiveList();
-    renderFeaturedCandidates();
+    pintarDestacadosAdmin();
     renderFeaturedProducts();
     alert('Se seleccionaron automáticamente los 8 más vendidos.');
 }
@@ -2413,15 +2424,65 @@ async function renderUsersTable() {
     }).join('');
 }
 
+// Pide la contraseña del administrador que inició sesión antes de dar el
+// rol admin a otro usuario. Devuelve la contraseña escrita o null si
+// cancela o cierra el modal. La contraseña nunca se guarda: solo viaja en
+// el PUT al servidor, que la compara con bcrypt. Usa el modal propio del
+// sitio, no el de Bootstrap, para que funcione sin internet.
+let _adminPasswordResolver = null;
+function pedirPasswordAdmin(nombreUsuario) {
+    return new Promise((resolve) => {
+        _adminPasswordResolver = resolve;
+        document.getElementById('admin-password-body').textContent =
+            'Vas a dar el rol administrador a ' + nombreUsuario + '. Por seguridad, escribe TU contraseña de administrador para confirmarlo.';
+        const input = document.getElementById('admin-password-input');
+        const errorEl = document.getElementById('admin-password-error');
+        input.value = '';
+        errorEl.style.display = 'none';
+        errorEl.textContent = '';
+        document.getElementById('admin-password-modal').classList.add('open');
+        input.onkeydown = (e) => { if (e.key === 'Enter') { e.preventDefault(); confirmarPasswordAdmin(); } };
+        setTimeout(() => input.focus(), 100);
+    });
+}
+function cerrarPasswordAdmin() {
+    document.getElementById('admin-password-modal').classList.remove('open');
+    if (_adminPasswordResolver) { const r = _adminPasswordResolver; _adminPasswordResolver = null; r(null); }
+}
+function cerrarPasswordAdminOutside(event) {
+    if (event.target === event.currentTarget) cerrarPasswordAdmin();
+}
+function confirmarPasswordAdmin() {
+    const input = document.getElementById('admin-password-input');
+    const errorEl = document.getElementById('admin-password-error');
+    const valor = input.value;
+    if (!valor) {
+        errorEl.textContent = 'Escribe tu contraseña de administrador.';
+        errorEl.style.display = 'block';
+        input.focus();
+        return;
+    }
+    input.value = '';
+    document.getElementById('admin-password-modal').classList.remove('open');
+    if (_adminPasswordResolver) { const r = _adminPasswordResolver; _adminPasswordResolver = null; r(valor); }
+}
+
 async function toggleUserRole(userId) {
     const user = registeredUsers.find(u => u.id === userId);
     if (!user) return;
     const newRole = user.role === 'admin' ? 'cliente' : 'admin';
-    if (!confirm(`¿Cambiar a ${user.name} al rol "${newRole}"?`)) return;
+    let password;
+    if (newRole === 'admin') {
+        // Dar admin exige la contraseña del admin que inició sesión.
+        password = await pedirPasswordAdmin(user.name);
+        if (password === null) return;
+    } else {
+        if (!confirm(`¿Cambiar a ${user.name} al rol "${newRole}"?`)) return;
+    }
     try {
         await apiFetch('/api/admin/usuarios/' + userId + '/rol', {
             method: 'PUT',
-            body: JSON.stringify({ rol: newRole })
+            body: JSON.stringify({ rol: newRole, ...(password !== undefined ? { password } : {}) })
         });
     } catch (e) {
         mostrarError(e);
